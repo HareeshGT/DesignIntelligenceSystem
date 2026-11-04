@@ -21,6 +21,7 @@ API_ROOT = "https://api.github.com"
 ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte", ".html", ".css", ".scss"}
 MAX_SOURCE_BYTES = 32_000
 MAX_PROPOSAL_BYTES = 32_000
+FORBIDDEN_PATH_PARTS = {"api", "auth", "backend", "database", "db", "infra", "migrations", "scripts", "server", "test", "tests"}
 SECRET_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*([:=])\s*['\"]?([A-Za-z0-9_./+=:-]{12,})"),
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
@@ -47,7 +48,8 @@ def _repository_parts(value: str) -> tuple[str, str]:
 def _safe_source_path(path: str) -> bool:
     if not path or path.startswith("/") or ".." in path.split("/") or path.startswith("."):
         return False
-    if any(part.startswith(".") for part in path.split("/")):
+    parts = [part.lower() for part in path.split("/")]
+    if any(part.startswith(".") or part in FORBIDDEN_PATH_PARTS for part in parts):
         return False
     return any(path.lower().endswith(suffix) for suffix in ALLOWED_SUFFIXES)
 
