@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
+import socket
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -41,6 +44,28 @@ class LLMProvider:
     def enabled(self) -> bool:
         return bool(self.api_key and self.model)
 
+    def _validate_custom_base_url(self) -> None:
+        if not self.base_url:
+            return
+        parsed = urlparse(self.base_url)
+        host = (parsed.hostname or "").rstrip(".").lower()
+        if parsed.scheme != "https" or not host or parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ProviderError("Custom model endpoints must use HTTPS and must not contain credentials, query strings, or fragments.")
+        if host in {"localhost", "localhost.localdomain"} or host.endswith((".localhost", ".local")):
+            raise ProviderError("Local and private model endpoints are not allowed.")
+        try:
+            addresses = {ipaddress.ip_address(host)}
+        except ValueError:
+            try:
+                addresses = {
+                    ipaddress.ip_address(item[4][0])
+                    for item in socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)
+                }
+            except (OSError, ValueError) as exc:
+                raise ProviderError("Custom model endpoint hostname could not be resolved safely.") from exc
+        if not addresses or any(not address.is_global for address in addresses):
+            raise ProviderError("Custom model endpoints must resolve only to public IP addresses.")
+
     def complete_json(self, system: str, prompt: str, max_tokens: int = 1800) -> dict[str, Any]:
         if not self.enabled:
             raise ProviderError("LLM provider is not configured")
@@ -61,6 +86,7 @@ class LLMProvider:
             raise ProviderError("Model provider request failed or returned an invalid response") from exc
 
     def _openai_compatible(self, system: str, prompt: str, max_tokens: int = 1800) -> str:
+        self._validate_custom_base_url()
         base = self.base_url or "https://api.openai.com/v1"
         response = httpx.post(
             f"{base}/chat/completions",
@@ -81,6 +107,7 @@ class LLMProvider:
         return response.json()["choices"][0]["message"]["content"]
 
     def _anthropic(self, system: str, prompt: str, max_tokens: int = 1800) -> str:
+        self._validate_custom_base_url()
         base = self.base_url or "https://api.anthropic.com/v1"
         response = httpx.post(
             f"{base}/messages",
@@ -138,6 +165,7 @@ class LLMProvider:
     def _openai_compatible_images(
         self, system: str, prompt: str, images: list[dict[str, str]]
     ) -> str:
+        self._validate_custom_base_url()
         base = self.base_url or "https://api.openai.com/v1"
         content = [{"type": "text", "text": prompt}]
         content.extend({
@@ -169,6 +197,7 @@ class LLMProvider:
     def _anthropic_images(
         self, system: str, prompt: str, images: list[dict[str, str]]
     ) -> str:
+        self._validate_custom_base_url()
         base = self.base_url or "https://api.anthropic.com/v1"
         content = [{"type": "text", "text": prompt}]
         content.extend({
