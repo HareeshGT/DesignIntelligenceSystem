@@ -34,6 +34,14 @@ SECRET_PATTERNS = [
 ]
 
 
+def _decode_github_content(value: str) -> str:
+    """Decode GitHub base64 content while tolerating line wrapping."""
+    if not isinstance(value, str):
+        raise ValueError("GitHub content is not a base64 string.")
+    compact = "".join(value.split())
+    return base64.b64decode(compact, validate=True).decode("utf-8")
+
+
 def _redact_secrets(value: str) -> str:
     for pattern in SECRET_PATTERNS:
         value = pattern.sub("[REDACTED]", value)
@@ -191,12 +199,12 @@ class ImprovementService:
                 continue
             fetched_count += 1
             try:
-                raw = base64.b64decode(data["content"], validate=True)
-                source = raw.decode("utf-8")
+                source = _decode_github_content(data["content"])
+                raw_size = len(source.encode("utf-8"))
             except (ValueError, UnicodeDecodeError):
                 decode_skipped += 1
                 continue
-            if len(raw) > MAX_SOURCE_BYTES:
+            if raw_size > MAX_SOURCE_BYTES:
                 oversized_skipped += 1
                 continue
             score = _ui_source_score(path, source)
