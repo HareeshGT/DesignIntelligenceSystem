@@ -49,11 +49,21 @@ def _repository_parts(value: str) -> tuple[str, str]:
         raise ImprovementError("Use a GitHub repository URL or owner/name.")
     return parts[0], parts[1]
 
+def _normalize_scope_path(path: str) -> str:
+    """Normalize common user-entered repository scopes without allowing traversal."""
+    value = path.strip().replace("\\\\", "/")
+    while value.startswith("./"):
+        value = value[2:]
+    value = value.rstrip("/")
+    return value or "."
+
+
 def _safe_scope_path(path: str) -> bool:
     """Validate a repository-relative file or directory scope; '.' means repository root."""
+    path = _normalize_scope_path(path)
     if path == ".":
         return True
-    if not path or "\\" in path or path.startswith("/") or path.startswith(".") or ".." in path.split("/"):
+    if not path or path.startswith("/") or ".." in path.split("/"):
         return False
     parts = [part.lower() for part in path.split("/")]
     return not any(part.startswith(".") or part.split(".", 1)[0] in FORBIDDEN_PATH_PARTS for part in parts)
@@ -146,16 +156,17 @@ class ImprovementService:
         ref = request.ref or metadata.get("default_branch") or "main"
         ref_data = self._request("GET", f"{base}/git/ref/heads/{quote(ref, safe='')}")
         commit_sha = ref_data["object"]["sha"]
-        if len(set(request.target_files)) != len(request.target_files):
+        scopes = [_normalize_scope_path(path) for path in request.target_files]
+        if len(set(scopes)) != len(scopes):
             raise ImprovementError("Duplicate source paths are not allowed.")
-        if any(not _safe_scope_path(path) for path in request.target_files):
+        if any(not _safe_scope_path(path) for path in scopes):
             raise ImprovementError("Use safe repository-relative paths. Directories and '.' are supported; hidden, traversal, test, and infrastructure paths are not.")
         tree = self._request("GET", f"{base}/git/trees/{commit_sha}", params={"recursive": "1"})
         if tree.get("truncated"):
             raise ImprovementError("Repository is too large for complete UI discovery. Supply up to four specific file or directory paths.")
         tree_files = [item["path"] for item in tree.get("tree", []) if item.get("type") == "blob"]
-        explicit_files = {path for path in request.target_files if _safe_source_path(path)}
-        candidates = [path for path in tree_files if _safe_source_path(path) and any(_scope_matches(path, scope) for scope in request.target_files)]
+        explicit_files = {path for path in scopes if _safe_source_path(path)}
+        candidates = [path for path in tree_files if _safe_source_path(path) and any(_scope_matches(path, scope) for scope in scopes)]
         missing = explicit_files.difference(tree_files)
         if missing:
             raise ImprovementError("Source file not found in repository: " + ", ".join(sorted(missing)))
