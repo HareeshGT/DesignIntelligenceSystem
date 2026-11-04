@@ -15,7 +15,7 @@ COPY app ./app
 
 RUN python -m pip install --upgrade pip && pip install . && playwright install --with-deps chromium
 
-RUN find /ms-playwright -type f -name chrome_sandbox -exec chown root:root {} \\; -exec chmod 4755 {} \\; && mkdir -p /data && chown -R dis:dis /app /data
+RUN find /ms-playwright -type f -name chrome_sandbox -exec chown root:root {} + && find /ms-playwright -type f -name chrome_sandbox -exec chmod 4755 {} + && mkdir -p /data && chown -R dis:dis /app /data
 USER dis
 
 EXPOSE 8000
