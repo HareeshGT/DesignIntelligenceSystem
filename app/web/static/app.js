@@ -487,7 +487,8 @@ async function proposeImprovement(event) {
         ref:$("improvement-ref").value.trim() || null,
         target_files:paths,
         findings:(latestVisualReport.findings || []).slice(0,20),
-        visual_summary:latestVisualReport.visual_summary || ""
+        visual_summary:latestVisualReport.visual_summary || "",
+        source_sharing_consent: $("source-consent").checked === true
       })
     });
     const body = await response.json().catch(() => ({}));
