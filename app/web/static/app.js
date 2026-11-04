@@ -295,9 +295,13 @@ $("llm-provider").addEventListener("change", () => {
 function openSettings() {
   $("api-key-input").value = sessionStorage.getItem(KEY_STORAGE) || "";
   $("llm-provider").value = sessionStorage.getItem(CREDENTIAL_FIELDS.provider) || "openai";
-  $("llm-model").value = sessionStorage.getItem(CREDENTIAL_FIELDS.model) || "";
-  $("llm-base-url").value = sessionStorage.getItem(CREDENTIAL_FIELDS.baseUrl) || "";
-  $("llm-api-key").value = sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey) || "";
+  const selectedProvider = $("llm-provider").value;
+  const profiles = readProviderProfiles();
+  if (!profiles[selectedProvider] && (sessionStorage.getItem(CREDENTIAL_FIELDS.model) || sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey))) {
+    profiles[selectedProvider] = {model:sessionStorage.getItem(CREDENTIAL_FIELDS.model)||"",apiKey:sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey)||"",baseUrl:sessionStorage.getItem(CREDENTIAL_FIELDS.baseUrl)||""};
+    sessionStorage.setItem(PROVIDER_PROFILES_KEY, JSON.stringify(profiles));
+  }
+  loadProviderProfile(selectedProvider);
   $("github-read-token").value = sessionStorage.getItem(CREDENTIAL_FIELDS.githubRead) || "";
   $("github-write-token").value = sessionStorage.getItem(CREDENTIAL_FIELDS.githubWrite) || "";
   $("settings-dialog").showModal();
