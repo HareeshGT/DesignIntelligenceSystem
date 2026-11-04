@@ -46,7 +46,7 @@ def test_ui_source_classifier_uses_python_file_contents_not_extension():
 
 def test_scope_normalization_accepts_common_relative_directory_forms():
     assert _normalize_scope_path("./app/web/static/") == "app/web/static"
-    assert _normalize_scope_path(".\\\\app\\\\web\\\\static") == "app/web/static"
+    assert _normalize_scope_path(".\\app\\web\\static") == "app/web/static"
     assert _normalize_scope_path("./") == "."
     assert _safe_scope_path("./app/web/static/")
     assert _safe_scope_path(".")
