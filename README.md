@@ -70,6 +70,7 @@ DIS can now inspect a GitHub repository without cloning it or executing its code
 
 - Public repositories work without a GitHub token, subject to GitHub's anonymous API rate limit.
 - For private repositories or higher API limits, set `DIS_GITHUB_TOKEN` in the server environment using a least-privilege token with repository Contents: read access.
+- If a GitHub token or LLM API key is configured, also set `DIS_REPOSITORY_INSPECTION_API_KEY`. Requests must then include `X-DIS-API-Key`; the endpoint fails closed rather than exposing a configured GitHub token or allowing unauthenticated LLM usage.
 - DIS inventories the repository tree, detects common stacks and framework signals, identifies likely entry points/routes/components/styles/design-system files, and reports declared test/lint/build commands.
 - It samples a bounded number of files and limits bytes read. Likely embedded credentials are redacted before sampled text is sent to the configured LLM.
 - It never executes project code, installs dependencies, runs tests, or claims visual verification. The report includes limitations and explicit “not executed” labels.
@@ -80,6 +81,7 @@ Example:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/repositories/inspect \
   -H 'Content-Type: application/json' \
+  -H 'X-DIS-API-Key: your_shared_key' \\
   -d '{"repository":"HareeshGT/KubeDock","include_file_samples":true}'
 ```
 
