@@ -129,7 +129,7 @@ class ImprovementService:
             model = getattr(self.llm, "model", "")
             model_label = f"/{model}" if model else ""
             raise ImprovementError(
-                f"The {provider}{model_label} provider could not generate the UI proposal: {exc}"
+                f"The {provider}{model_label} model provider could not generate the UI proposal: {exc}"
             ) from exc
         proposed = result.get("files", [])
         if not isinstance(proposed, list) or len(proposed) > 4:
