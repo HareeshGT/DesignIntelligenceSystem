@@ -105,7 +105,7 @@ The visual inspector accepts a public application URL (optionally linked to a Gi
 - `POST /api/v1/improvements/propose` reads up to four existing frontend files from a GitHub branch and asks the configured model for replacement contents tied to supplied visual findings. It enforces source path and file-size limits, redacts likely credentials, signs the proposal and returns a reviewable unified diff. Proposing never writes to GitHub.
 - `POST /api/v1/improvements/apply` requires a signed, unexpired proposal and explicit `approval: true`. It uses `DIS_GITHUB_WRITE_TOKEN` to create a separate branch, commit approved files and open a pull request. It never merges the pull request.
 - Configure `DIS_GITHUB_WRITE_TOKEN` with fine-grained repository permissions for **Contents: read/write** and **Pull requests: read/write**. Keep `DIS_GITHUB_TOKEN` read-only for inspection. Never expose either token to the browser.
-- The dashboard lets the user review the diff and check an explicit approval box before the PR is created. The code proposal is limited to selected existing frontend files; it does not install dependencies, run the target repository, or deploy it.
+- The dashboard requires explicit consent before selected source files and findings are sent to the configured LLM provider, then lets the user review the diff and check a separate approval box before the PR is created. The code proposal is limited to selected existing frontend files; it does not install dependencies, run the target repository, or deploy it.
 
 ## Browser dashboard
 
