@@ -287,7 +287,12 @@ class GitHubRepositoryInspector:
             ]:
                 if token in package and label not in frameworks:
                     frameworks.append(label)
-        if any(p.endswith(".xcodeproj/project.pbxproj") for p in paths) and any(p.endswith(".swift") for p in paths):
+        swift_ui_evidence = any(
+            marker in content.lower()
+            for content in contents.values()
+            for marker in ("import swiftui", "import uikit", "import appkit")
+        )
+        if swift_ui_evidence and any(p.endswith(".swift") for p in paths):
             frameworks.append("Swift / Apple platform")
         if "pyproject.toml" in contents:
             pyproject = contents["pyproject.toml"].lower()
