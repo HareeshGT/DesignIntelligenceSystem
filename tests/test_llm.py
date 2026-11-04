@@ -148,7 +148,7 @@ def test_gemini_rejects_openai_endpoint_instead_of_sending_key_to_openai():
         base_url="https://api.openai.com/v1",
     )
 
-    with pytest.raises(ProviderError, match="Gemini provider is configured with the openai API endpoint"):
+    with pytest.raises(ProviderError, match="selected gemini provider is configured with the openai API endpoint"):
         provider.complete_json("system", "prompt")
 
 
