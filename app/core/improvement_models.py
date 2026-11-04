@@ -21,7 +21,9 @@ class ImprovementProposalRequest(BaseModel):
     # A visual audit can legitimately produce zero findings. The visual summary or
     # design brief still gives the model grounded context for a proposal.
     findings: list[ImprovementFinding] = Field(default_factory=list, max_length=20)
-    visual_summary: str = Field(default="", max_length=1600)
+    # Multi-specialist summaries contain useful design rationale; allow enough room
+    # for the complete coordinated handoff rather than rejecting valid proposals.
+    visual_summary: str = Field(default="", max_length=6000)
     source_sharing_consent: Literal[True]
 
     @model_validator(mode="after")
