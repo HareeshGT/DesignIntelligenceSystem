@@ -3,6 +3,7 @@ const $ = (id) => document.getElementById(id);
 const HISTORY_KEY = "dis.inspection.history.v1";
 const KEY_STORAGE = "dis.inspection.api_key";
 let latestVisualReport = null;
+let latestRepositoryReport = null;
 let latestProposalToken = null;
 function apiHeaders() {
   const headers = {"Content-Type":"application/json"};
@@ -337,20 +338,47 @@ async function inspectVisual(event) {
   button.querySelector(".button-label").textContent = "Inspecting application…";
   $("visual-loading").classList.remove("hidden");
   try {
-    const response = await fetch(API_BASE + "/api/v1/visual/inspect", {
+    const visualRequest = fetch(API_BASE + "/api/v1/visual/inspect", {
       method:"POST", headers:apiHeaders(),
       body:JSON.stringify({
         url:$("visual-url").value.trim(), capture_screenshots:true,
         crawl_internal_routes:$("crawl-routes").checked, max_routes:4, analyze_with_vision:$("vision-analysis").checked
       })
+    }).then(async response => {
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.detail || "Visual inspection failed (HTTP " + response.status + ").");
+      return body;
     });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 503) openSettings();
-      throw new Error(body.detail || "Visual inspection failed (HTTP " + response.status + ").");
-    }
+    const repositoryValue = $("visual-repository").value.trim();
+    const repositoryRequest = repositoryValue ? fetch(API_BASE + "/api/v1/repositories/inspect", {
+      method:"POST", headers:apiHeaders(),
+      body:JSON.stringify({repository:repositoryValue, ref:$("visual-ref").value.trim() || null, include_file_samples:true})
+    }).then(async response => {
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.detail || "Repository inspection failed (HTTP " + response.status + ").");
+      return body;
+    }) : Promise.resolve(null);
+    const [body, repositoryReport] = await Promise.all([visualRequest, repositoryRequest]);
     latestVisualReport = body;
+    latestRepositoryReport = repositoryReport;
+    if (repositoryReport) {
+      $("improvement-repo").value = repositoryReport.repository;
+      $("improvement-ref").value = repositoryReport.ref;
+      const suggested = [...(repositoryReport.component_and_style_files || []), ...(repositoryReport.app_entry_points || [])]
+        .filter(path => /\.(tsx|jsx|ts|js|vue|svelte|html|css|scss)$/i.test(path))
+        .slice(0,4);
+      if (!$("improvement-files").value.trim() && suggested.length) $("improvement-files").value = suggested.join(", ");
+    }
     renderVisualReport(body);
+    if (repositoryReport) {
+      const context = el("div", "report-card full");
+      context.append(el("h3", "", "Linked repository context: " + repositoryReport.repository));
+      context.append(el("p", "summary-text", repositoryReport.architecture_summary));
+      const list = el("div");
+      addList(list, repositoryReport.frameworks);
+      context.append(list);
+      $("visual-report").append(context);
+    }
   } catch (error) {
     $("visual-error").textContent = error.message || "Could not inspect this application.";
   } finally {
