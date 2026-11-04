@@ -5,6 +5,7 @@ class VisualInspectionRequest(BaseModel):
     url: HttpUrl
     capture_screenshots: bool = True
     page_timeout_ms: int = Field(default=20000, ge=3000, le=60000)
+    analyze_with_vision: bool = True
 
 
 class ViewportEvidence(BaseModel):
@@ -34,4 +35,7 @@ class VisualInspectionResponse(BaseModel):
     metrics: dict[str, int | float | bool | str] = Field(default_factory=dict)
     viewports: list[ViewportEvidence] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
+    visual_summary: str = ""
+    design_observations: list[str] = Field(default_factory=list)
+    design_system_signals: dict[str, list[str]] = Field(default_factory=dict)
     analysis_mode: str = "deterministic_dom_and_layout"
