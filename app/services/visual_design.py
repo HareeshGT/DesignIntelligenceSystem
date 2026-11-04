@@ -11,13 +11,26 @@ class VisualDesignAnalyzer:
     """Multimodal screenshot analysis with strict evidence-oriented output handling."""
 
     def __init__(self, provider: LLMProvider | None = None) -> None:
-        self.provider = provider or LLMProvider(
-            provider=os.getenv("DIS_VISION_LLM_PROVIDER") or os.getenv("DIS_LLM_PROVIDER"),
-            api_key=os.getenv("DIS_VISION_LLM_API_KEY") or os.getenv("DIS_LLM_API_KEY", ""),
-            model=os.getenv("DIS_VISION_LLM_MODEL") or os.getenv("DIS_LLM_MODEL", ""),
-            base_url=os.getenv("DIS_VISION_LLM_BASE_URL") or os.getenv("DIS_LLM_BASE_URL"),
-            timeout=45.0,
-        )
+        if provider is not None:
+            self.provider = provider
+        else:
+            vision_names = (
+                "DIS_VISION_LLM_PROVIDER",
+                "DIS_VISION_LLM_API_KEY",
+                "DIS_VISION_LLM_MODEL",
+                "DIS_VISION_LLM_BASE_URL",
+            )
+            dedicated_configured = any(os.getenv(name, "").strip() for name in vision_names)
+            if dedicated_configured:
+                self.provider = LLMProvider(
+                    provider=os.getenv("DIS_VISION_LLM_PROVIDER", "openai").strip() or "openai",
+                    api_key=os.getenv("DIS_VISION_LLM_API_KEY", "").strip(),
+                    model=os.getenv("DIS_VISION_LLM_MODEL", "").strip(),
+                    base_url=os.getenv("DIS_VISION_LLM_BASE_URL", "").strip(),
+                    timeout=45.0,
+                )
+            else:
+                self.provider = LLMProvider(timeout=45.0)
 
     def analyze(self, screenshots: list[dict[str, str]]) -> dict[str, Any]:
         if not self.provider.enabled:
