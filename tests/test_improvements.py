@@ -71,3 +71,27 @@ def test_secret_redaction_covers_tokens_and_private_keys():
     assert "very-long-secret-value-12345" not in redacted
     assert "ghp_abcdefghijklmnopqrstuvwxyz1234567890" not in redacted
     assert redacted.count("[REDACTED]") == 2
+
+
+def test_public_repository_reads_do_not_require_github_token(monkeypatch):
+    monkeypatch.delenv("DIS_GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("DIS_GITHUB_WRITE_TOKEN", raising=False)
+    service = ImprovementService()
+    captured = {}
+
+    class Response:
+        status_code = 200
+        content = b"{}"
+
+        def json(self):
+            return {}
+
+    def fake_request(method, url, **kwargs):
+        captured.update(kwargs)
+        return Response()
+
+    monkeypatch.setattr("app.services.improvements.httpx.request", fake_request)
+    service._request("GET", "https://api.github.com/repos/owner/repo")
+    assert "Authorization" not in captured["headers"]
+    with pytest.raises(ImprovementError, match="DIS_GITHUB_WRITE_TOKEN"):
+        service._request("POST", "https://api.github.com/repos/owner/repo/git/refs", write=True)
