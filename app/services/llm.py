@@ -28,8 +28,8 @@ class LLMProvider:
     ) -> None:
         self.provider = (provider or os.getenv("DIS_LLM_PROVIDER", "openai")).lower()
         self.api_key = api_key if api_key is not None else os.getenv("DIS_LLM_API_KEY", "")
-        self.model = model or os.getenv("DIS_LLM_MODEL", "")
-        self.base_url = (base_url or os.getenv("DIS_LLM_BASE_URL", "")).rstrip("/")
+        self.model = model if model is not None else os.getenv("DIS_LLM_MODEL", "")
+        self.base_url = (base_url if base_url is not None else os.getenv("DIS_LLM_BASE_URL", "")).rstrip("/")
         self.timeout = timeout
 
     @property
