@@ -150,6 +150,7 @@ def test_provider_http_errors_expose_safe_diagnostic_and_redact_api_key(monkeypa
         request=httpx.Request("POST", "https://provider.example/v1/chat/completions"),
     )
     monkeypatch.setattr("app.services.llm.httpx.post", lambda *args, **kwargs: response)
+    monkeypatch.setattr("app.services.llm.LLMProvider._validate_custom_base_url", lambda self: None)
     provider = LLMProvider(
         provider="gemini", api_key=secret, model="test-model",
         base_url="https://provider.example/v1",
@@ -170,6 +171,7 @@ def test_provider_timeout_has_actionable_error(monkeypatch):
         raise httpx.TimeoutException("request timed out")
 
     monkeypatch.setattr("app.services.llm.httpx.post", timeout)
+    monkeypatch.setattr("app.services.llm.LLMProvider._validate_custom_base_url", lambda self: None)
     provider = LLMProvider(provider="gemini", api_key="test", model="test-model")
 
     with pytest.raises(ProviderError, match="timed out"):
