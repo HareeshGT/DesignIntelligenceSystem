@@ -88,8 +88,35 @@ class LLMProvider:
             return parsed
         except ProviderError:
             raise
-        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
-            raise ProviderError("Model provider request failed or returned an invalid response") from exc
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            detail = self._provider_http_error_detail(exc.response)
+            suffix = f": {detail}" if detail else ""
+            raise ProviderError(f"Model provider rejected the request (HTTP {status}){suffix}") from exc
+        except httpx.TimeoutException as exc:
+            raise ProviderError("Model provider request timed out. Check provider availability and try again.") from exc
+        except httpx.HTTPError as exc:
+            raise ProviderError("Could not connect to the model provider. Check the API endpoint and network access.") from exc
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            raise ProviderError("Model provider returned an invalid or unexpected response. Check the provider/model compatibility.") from exc
+
+    def _provider_http_error_detail(self, response: httpx.Response) -> str:
+        """Return a short, credential-redacted provider error without exposing response payloads."""
+        try:
+            payload = response.json()
+        except ValueError:
+            return ""
+        if not isinstance(payload, dict):
+            return ""
+        error = payload.get("error", payload)
+        if not isinstance(error, dict):
+            return ""
+        message = error.get("message") or error.get("detail") or error.get("status")
+        if not isinstance(message, str):
+            return ""
+        message = message.replace(self.api_key, "[REDACTED]") if self.api_key else message
+        message = " ".join(message.split())
+        return message[:300]
 
     def _openai_compatible(self, system: str, prompt: str, max_tokens: int = 1800) -> str:
         self._validate_custom_base_url()
