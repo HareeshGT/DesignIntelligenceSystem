@@ -197,7 +197,7 @@ class VisualInspector:
             with sync_playwright() as playwright:
                 browser: Browser = playwright.chromium.launch(
                     headless=True,
-                    args=["--no-sandbox", "--disable-dev-shm-usage"],
+                    args=["--disable-dev-shm-usage"],
                 )
                 try:
                     for name, width, height in VIEWPORTS:
