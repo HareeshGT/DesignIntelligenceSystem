@@ -140,6 +140,18 @@ def test_provider_has_dedicated_default_endpoint(provider, expected_base):
     assert configured.base_url == expected_base
     assert configured.enabled
 
+def test_gemini_rejects_openai_endpoint_instead_of_sending_key_to_openai():
+    provider = LLMProvider(
+        provider="gemini",
+        api_key="test-gemini-key",
+        model="gemini-2.5-flash",
+        base_url="https://api.openai.com/v1",
+    )
+
+    with pytest.raises(ProviderError, match="Gemini provider is configured with the openai API endpoint"):
+        provider.complete_json("system", "prompt")
+
+
 def test_provider_http_errors_expose_safe_diagnostic_and_redact_api_key(monkeypatch):
     import httpx
 
