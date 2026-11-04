@@ -4,3 +4,38 @@
 .visual-summary{padding:16px 18px;border:1px solid #3b3852;background:#211f31;border-radius:8px;color:#d0c7ed;font-size:12px;line-height:1.75;margin:12px 0}.design-signals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}.design-signal{display:flex;flex-wrap:wrap;gap:6px;padding:12px;background:#191c29;border:1px solid #303346;border-radius:8px}.design-signal b{width:100%;font:10px 'DM Mono',monospace;color:#a99ad8;text-transform:uppercase}.compare-panel,.improvement-panel{margin-top:18px;max-width:900px}.compare-panel h2,.improvement-panel h2{font:650 18px var(--display);margin:7px 0}.compare-panel .lede,.improvement-panel .lede{min-height:0;margin-bottom:16px;font-size:11px}.compare-panel form,.improvement-panel form{display:grid;gap:9px}.compare-panel label,.improvement-panel label{font-size:10px;color:#cdd0dd;margin-top:7px}.compare-panel input,.improvement-panel input:not([type="checkbox"]),.improvement-panel textarea{width:100%;min-height:40px;background:#11131d;border:1px solid #363a4c;border-radius:6px;padding:10px;color:#eef0f8;font:11px 'DM Sans',sans-serif;outline:none}.improvement-panel textarea{resize:vertical;line-height:1.5}.comparison-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #303346;font-size:10px;color:#b9bfd0}.comparison-row b{color:#e1dafa;text-transform:capitalize}.proposal-diff{max-height:440px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:14px;background:#0e1018;border:1px solid #303346;border-radius:7px;color:#c9cfe0;font:10px/1.65 'DM Mono',monospace}.approval-check{display:flex;align-items:flex-start;gap:9px;padding:12px;border:1px solid #49405f;background:#211f31;border-radius:7px;line-height:1.6}.approval-check input{width:15px;min-height:15px;accent-color:#a18bf2}.approval-check span{font-size:10px;color:#d5ccef}.proposal-link{display:inline-block;margin:14px 0;color:#c6b5ff;font-size:12px;text-decoration:none}.proposal-link:hover{text-decoration:underline}.visual-finding h4,.compare-panel h4{font:600 11px var(--display);margin:14px 0 8px}@media(max-width:560px){.design-signals{grid-template-columns:1fr}.comparison-row{flex-direction:column}}
 
 .comparison-images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:8px 0 18px}.comparison-image{margin:0;min-width:0;border:1px solid #303346;border-radius:8px;overflow:hidden;background:#11131d}.comparison-image figcaption{padding:8px 10px;color:#b8bdd0;font:9px 'DM Mono',monospace}.comparison-image img{display:block;width:100%;height:auto;max-height:360px;object-fit:contain;object-position:top}@media(max-width:560px){.comparison-images{grid-template-columns:1fr}}
+
+
+/* Live workspace motion: purposeful, low-amplitude feedback rather than decorative noise. */
+.live-clock{font:10px 'DM Mono',monospace;letter-spacing:.08em;color:#a9aec1;padding:7px 9px;border:1px solid #303449;border-radius:7px;background:#191c29;font-variant-numeric:tabular-nums}
+.system-status i.good{animation:status-breathe 2.4s ease-in-out infinite}
+.heading-orbit .orbit-one{animation:orbit-drift 18s linear infinite}
+.heading-orbit .orbit-two{animation:orbit-drift 24s linear infinite reverse}
+.orbit-core{animation:core-glow 3.6s ease-in-out infinite}
+.heading-orbit i{animation:node-float 4.8s ease-in-out infinite}
+.heading-orbit b{animation:node-float 5.6s ease-in-out -2s infinite}
+.scan-line{animation:scan-sweep 3.8s ease-in-out infinite}
+.visual-chip{animation:chip-hover 5s ease-in-out infinite}
+.chip-b{animation-delay:-2.5s}
+.stat-card,.panel,.launch-card,.history-row,.report-card{transition:transform .24s ease,border-color .24s ease,box-shadow .24s ease}
+.stat-card:hover,.panel:hover,.report-card:hover{transform:translateY(-3px);border-color:#51466f;box-shadow:0 14px 34px #08091055}
+.launch-card:hover{border-color:#65558e;box-shadow:0 18px 48px #08091044}
+.history-row:hover{transform:translateX(3px);border-color:#51466f}
+.nav-item{position:relative;overflow:hidden}
+.nav-item:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent,#ffffff0b,transparent);transform:translateX(-120%);transition:transform .5s ease}
+.nav-item:hover:after{transform:translateX(120%)}
+.primary-button:active,.icon-button:active,.outline-button:active{transform:translateY(1px) scale(.985)}
+.input-wrap,.field-grow input,.dialog-body input,.dialog-body select,.studio-brief-panel textarea{transition:border-color .2s ease,box-shadow .2s ease}
+.input-wrap:focus-within,.field-grow input:focus,.dialog-body input:focus,.dialog-body select:focus,.studio-brief-panel textarea:focus{box-shadow:0 0 0 3px #a78bfa18}
+.view.active .page-heading,.view.active .stats-grid,.view.active .launch-card,.view.active .panel{animation:content-arrive .48s cubic-bezier(.2,.7,.2,1) both}
+.view.active .stats-grid{animation-delay:.06s}
+.view.active .launch-card{animation-delay:.12s}
+@keyframes status-breathe{0%,100%{box-shadow:0 0 0 0 #75e0c133}50%{box-shadow:0 0 0 5px #75e0c100}}
+@keyframes orbit-drift{from{rotate:0deg}to{rotate:360deg}}
+@keyframes core-glow{0%,100%{filter:drop-shadow(0 0 4px #a78bfa33)}50%{filter:drop-shadow(0 0 15px #a78bfa99)}}
+@keyframes node-float{0%,100%{translate:0 0}50%{translate:0 -8px}}
+@keyframes scan-sweep{0%,100%{top:42px;opacity:.15}50%{top:118px;opacity:.85}}
+@keyframes chip-hover{0%,100%{translate:0 0}50%{translate:0 -5px}}
+@keyframes content-arrive{from{opacity:0;translate:0 9px}to{opacity:1;translate:0 0}}
+@media(max-width:560px){.live-clock{font-size:9px;padding:6px 7px}.topbar-right{gap:7px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
