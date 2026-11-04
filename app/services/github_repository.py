@@ -40,7 +40,6 @@ PRIORITY_NAMES = {
     "components.json", "tsconfig.json", "pytest.ini",
 }
 SOURCE_SUFFIXES = {".tsx", ".jsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less"}
-MANIFEST_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 
 
 class RepositoryInspectionError(RuntimeError):
@@ -246,7 +245,6 @@ class GitHubRepositoryInspector:
     @staticmethod
     def _detect_stack(files: list[dict[str, Any]], contents: dict[str, str]) -> tuple[list[str], list[str], list[str]]:
         paths = [f["path"].lower() for f in files]
-        all_text = "\n".join(contents.values()).lower()
         stacks, managers, frameworks = [], [], []
         indicators = [
             ("JavaScript/TypeScript", ["package.json", "tsconfig.json", "vite.config", "next.config"]),
