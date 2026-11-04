@@ -130,6 +130,15 @@ function showReport(data) {
   stack.append(el("h3", "", "Package managers"));
   addTags(stack, data.package_managers, true);
   grid.append(card("Technology landscape", stack));
+  if (data.platform_profiles?.length) {
+    const profiles = el("div");
+    data.platform_profiles.forEach(profile => {
+      profiles.append(el("h3", "", profile.name + " · " + profile.adapter_id));
+      addList(profiles, profile.capabilities);
+      addList(profiles, profile.limitations, true);
+    });
+    grid.append(card("Platform adapter capabilities", profiles, true));
+  }
 
   const routes = el("div");
   addList(routes, data.app_entry_points);
