@@ -59,3 +59,13 @@ def test_signed_approval_token_can_only_be_applied_once(monkeypatch, tmp_path):
     with pytest.raises(ImprovementError, match="already been used"):
         service.apply(token, True)
     assert len(calls) == 4
+
+
+def test_secret_redaction_covers_tokens_and_private_keys():
+    from app.services.improvements import _redact_secrets
+
+    source = 'api_key = "very-long-secret-value-12345"\nTOKEN=ghp_abcdefghijklmnopqrstuvwxyz1234567890'
+    redacted = _redact_secrets(source)
+    assert "very-long-secret-value-12345" not in redacted
+    assert "ghp_abcdefghijklmnopqrstuvwxyz1234567890" not in redacted
+    assert redacted.count("[REDACTED]") == 2
