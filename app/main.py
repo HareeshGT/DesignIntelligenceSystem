@@ -12,6 +12,7 @@ from app.api.improvements import router as improvements_router
 from app.core.models import ApprovalRequest, DesignRequest
 from app.core.permissions import PermissionPolicy
 from app.services.llm import LLMProvider
+from app.services.visual_design import VisualDesignAnalyzer
 from app.services.memory import ProjectMemory
 from app.services.orchestrator import Orchestrator
 
@@ -63,12 +64,9 @@ def provider_status():
         "provider": llm.provider if llm.enabled else None,
         "model": llm.model if llm.enabled else None,
         "mode": "llm" if llm.enabled else "deterministic",
-        "vision_configured": bool(
-            (os.getenv("DIS_VISION_LLM_API_KEY") or os.getenv("DIS_LLM_API_KEY", "")).strip()
-            and (os.getenv("DIS_VISION_LLM_MODEL") or os.getenv("DIS_LLM_MODEL", "")).strip()
-        ),
-        "vision_provider": os.getenv("DIS_VISION_LLM_PROVIDER") or (llm.provider if llm.enabled else None),
-        "vision_model": os.getenv("DIS_VISION_LLM_MODEL") or (llm.model if llm.enabled else None),
+        "vision_configured": VisualDesignAnalyzer().provider.enabled,
+        "vision_provider": VisualDesignAnalyzer().provider.provider if VisualDesignAnalyzer().provider.enabled else None,
+        "vision_model": VisualDesignAnalyzer().provider.model if VisualDesignAnalyzer().provider.enabled else None,
     }
 
 
