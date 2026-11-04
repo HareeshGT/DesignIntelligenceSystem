@@ -12,7 +12,7 @@ def _authorize(api_key: str | None) -> None:
     expected = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip()
     if not expected:
         raise HTTPException(status_code=503, detail="Set DIS_REPOSITORY_INSPECTION_API_KEY before using improvement endpoints.")
-    if not api_key or not hmac.compare_digest(api_key, expected):
+    if not api_key or not hmac.compare_digest(api_key.encode("utf-8"), expected.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Invalid or missing DIS API key.")
 
 @router.post("/propose")
