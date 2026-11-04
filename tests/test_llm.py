@@ -39,7 +39,7 @@ def test_multimodal_provider_requires_images():
 def test_multimodal_provider_rejects_unsupported_media_type():
     provider = LLMProvider(api_key="secret", model="vision-model")
     with pytest.raises(ProviderError, match="media type"):
-        provider.analyze_images_json("system", "prompt", [{"data": "aGVsbG8=", "media_type": "image/gif"})
+        provider.analyze_images_json("system", "prompt", [{"data": "aGVsbG8=", "media_type": "image/gif"}])
 
 
 def test_multimodal_provider_parses_json_from_mocked_openai_response(monkeypatch):
