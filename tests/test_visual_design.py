@@ -39,3 +39,34 @@ def test_visual_analyzer_truncates_model_findings_to_schema_limits():
     assert len(finding.description) == 600
     assert len(finding.evidence) == 600
     assert len(finding.recommendation) == 600
+
+
+def test_partial_dedicated_vision_config_never_falls_back_to_text_credentials(monkeypatch):
+    monkeypatch.setenv("DIS_LLM_PROVIDER", "openai-compatible")
+    monkeypatch.setenv("DIS_LLM_API_KEY", "text-secret")
+    monkeypatch.setenv("DIS_LLM_MODEL", "text-model")
+    monkeypatch.setenv("DIS_LLM_BASE_URL", "https://text-provider.example/v1")
+    monkeypatch.delenv("DIS_VISION_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("DIS_VISION_LLM_API_KEY", "")
+    monkeypatch.setenv("DIS_VISION_LLM_MODEL", "vision-model")
+    monkeypatch.delenv("DIS_VISION_LLM_BASE_URL", raising=False)
+
+    provider = VisualDesignAnalyzer().provider
+    assert provider.api_key == ""
+    assert provider.model == "vision-model"
+    assert provider.base_url == ""
+    assert provider.enabled is False
+
+
+def test_no_dedicated_vision_config_reuses_complete_text_provider(monkeypatch):
+    monkeypatch.setenv("DIS_LLM_PROVIDER", "openai-compatible")
+    monkeypatch.setenv("DIS_LLM_API_KEY", "text-secret")
+    monkeypatch.setenv("DIS_LLM_MODEL", "text-model")
+    monkeypatch.setenv("DIS_LLM_BASE_URL", "https://text-provider.example/v1")
+    for name in ("DIS_VISION_LLM_PROVIDER", "DIS_VISION_LLM_API_KEY", "DIS_VISION_LLM_MODEL", "DIS_VISION_LLM_BASE_URL"):
+        monkeypatch.delenv(name, raising=False)
+
+    provider = VisualDesignAnalyzer().provider
+    assert provider.api_key == "text-secret"
+    assert provider.model == "text-model"
+    assert provider.base_url == "https://text-provider.example/v1"
