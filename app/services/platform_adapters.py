@@ -47,6 +47,13 @@ NATIVE_PROFILE = PlatformProfile(
     capabilities=("repository_inspection", "approved_source_proposals_for_selected_ui_files"),
     limitations=("Native screenshots, accessibility trees and interaction tests require a platform-specific runner.",),
 )
+QT_DESKTOP_PROFILE = PlatformProfile(
+    adapter_id="qt-desktop",
+    name="Qt desktop application (PyQt/PySide)",
+    runtime_family="native_desktop",
+    capabilities=("repository_inspection", "python_ui_source_analysis", "theme_and_stylesheet_analysis", "approved_desktop_ui_source_proposals"),
+    limitations=("Live desktop screenshots, widget-tree inspection and interaction tests require a desktop runner; DIS does not launch the target app.",),
+)
 
 
 def resolve_platform_profiles(frameworks: list[str], stacks: list[str]) -> list[dict]:
@@ -62,7 +69,11 @@ def resolve_platform_profiles(frameworks: list[str], stacks: list[str]) -> list[
     has_react_web = "react" in labels and "react native" not in labels
     if labels.intersection(explicit_web_labels) or has_react_web:
         profiles.append(WEB_PROFILE)
-    if "swift / apple platform" in labels or "qt desktop" in labels:
+    if "qt desktop" in labels or "pyqt" in labels or "pyside" in labels:
+        profiles.append(QT_DESKTOP_PROFILE)
+    elif "swift / apple platform" in labels:
         profiles.append(NATIVE_PROFILE)
+    if "fastapi" in labels or "flask" in labels or "django" in labels:
+        profiles.append(WEB_PROFILE)
     unique = {profile.adapter_id: profile for profile in profiles}
     return [asdict(profile) for profile in unique.values()]
