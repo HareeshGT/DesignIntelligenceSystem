@@ -119,3 +119,13 @@ def test_visual_compare_requires_shared_key_when_configured(monkeypatch):
         json={"baseline_url":"https://before.example","candidate_url":"https://after.example"},
     )
     assert response.status_code == 401
+
+
+def test_visual_endpoint_rejects_non_ascii_api_key_without_server_error(monkeypatch):
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "expected-secret")
+    response = client.post(
+        "/api/v1/visual/inspect",
+        headers={"X-DIS-API-Key": "é"},
+        json={"url": "http://localhost:8000"},
+    )
+    assert response.status_code == 401
