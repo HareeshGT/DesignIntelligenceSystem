@@ -27,6 +27,7 @@ class RepositoryInspection(BaseModel):
     detected_stacks: list[str] = Field(default_factory=list)
     package_managers: list[str] = Field(default_factory=list)
     frameworks: list[str] = Field(default_factory=list)
+    platform_profiles: list[dict] = Field(default_factory=list)
     app_entry_points: list[str] = Field(default_factory=list)
     route_and_page_files: list[str] = Field(default_factory=list)
     component_and_style_files: list[str] = Field(default_factory=list)
