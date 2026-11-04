@@ -12,7 +12,7 @@ A standalone, provider-backed design intelligence foundation for improving web, 
 - Project-scoped SQLite memory, permission policy, quality rubric, and FastAPI API.
 - Provider status endpoint exposes configuration metadata only; API keys are never returned.
 
-> **Important capability boundary:** this release performs design reasoning and planning. It does not yet inspect repositories, edit source code, launch browsers, capture screenshots, or perform visual regression testing. QA findings are model analysis, not proof of executed visual verification.
+> **Important capability boundary:** DIS can inspect GitHub repository metadata and a bounded sample of files in read-only mode. It does not yet edit source code, launch browsers, capture screenshots, or perform visual regression testing. QA findings are model analysis, not proof of executed visual verification.
 
 ## Architecture
 
@@ -64,6 +64,29 @@ DIS_LLM_MODEL=your-model-id
 
 Keep `.env` out of version control. Never place API keys in source code, requests, or logs.
 
+## Read-only GitHub repository inspection
+
+DIS can now inspect a GitHub repository without cloning it or executing its code. The first adapter is intentionally read-only and framework-agnostic.
+
+- Public repositories work without a GitHub token, subject to GitHub's anonymous API rate limit.
+- For private repositories or higher API limits, set `DIS_GITHUB_TOKEN` in the server environment using a least-privilege token with repository Contents: read access.
+- If a GitHub token or LLM API key is configured, also set `DIS_REPOSITORY_INSPECTION_API_KEY`. Requests must then include `X-DIS-API-Key`; the endpoint fails closed rather than exposing a configured GitHub token or allowing unauthenticated LLM usage.
+- DIS inventories the repository tree, detects common stacks and framework signals, identifies likely entry points/routes/components/styles/design-system files, and reports declared test/lint/build commands.
+- It samples a bounded number of files and limits bytes read. Likely embedded credentials are redacted before sampled text is sent to the configured LLM.
+- It never executes project code, installs dependencies, runs tests, or claims visual verification. The report includes limitations and explicit “not executed” labels.
+- The endpoint accepts `owner/name` or a `https://github.com/owner/name` URL. An optional `ref` selects a branch, tag, or commit.
+
+Example:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/repositories/inspect \
+  -H 'Content-Type: application/json' \
+  -H 'X-DIS-API-Key: your_shared_key' \\
+  -d '{"repository":"HareeshGT/KubeDock","include_file_samples":true}'
+```
+
+The response contains detected stacks/frameworks, entry points, route/page paths, component/style paths, design-system evidence, declared test commands, sampled-file evidence, an architecture summary, and limitations. It does not return source file contents.
+
 ## API
 
 - `GET /health` — service health
@@ -96,7 +119,7 @@ Routine analysis and design planning are autonomous. Destructive, external, publ
 
 1. **Foundation:** registry, orchestration, project memory, permission policy, quality rubric, API.
 2. **Provider-backed reasoning (current):** configurable provider adapter, dynamic specialist selection, structured outputs, deterministic fallback.
-3. **Product adapters:** repository discovery, framework-aware product context, design-system ingestion.
+3. **Product adapters (in progress):** GitHub repository discovery is available in read-only mode; deepen framework-aware context and design-system ingestion.
 4. **Controlled execution:** patch proposals, sandboxed commands, approval workflow, browser automation.
 5. **Visual feedback loop:** viewport screenshots, visual issue detection, repair proposals, regression comparison.
 6. **Learning and operations:** reference library, project design memory, run tracing, observability, evaluation datasets.

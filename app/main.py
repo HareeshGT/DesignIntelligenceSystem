@@ -1,15 +1,22 @@
-from dotenv import load_dotenv\nfrom fastapi import FastAPI
+from dotenv import load_dotenv
+from fastapi import FastAPI
+
+from app.api.repositories import router as repositories_router
 from app.core.models import ApprovalRequest, DesignRequest
 from app.core.permissions import PermissionPolicy
 from app.services.llm import LLMProvider
 from app.services.memory import ProjectMemory
 from app.services.orchestrator import Orchestrator
 
+# Load local development configuration before constructing provider clients.
+load_dotenv()
+
 app = FastAPI(
     title="Design Intelligence System",
-    version="0.2.0",
-    description="A modular, provider-backed multi-agent design planning and quality intelligence API.",
+    version="0.3.0",
+    description="A modular design intelligence API with read-only GitHub repository inspection.",
 )
+app.include_router(repositories_router)
 memory = ProjectMemory()
 llm = LLMProvider()
 orchestrator = Orchestrator(memory=memory, llm=llm)
@@ -23,8 +30,10 @@ def health():
 
 @app.get("/api/v1/agents")
 def list_agents():
-    return [{"role": role.value, "description": agent.description}
-            for role, agent in orchestrator.registry.items()]
+    return [
+        {"role": role.value, "description": agent.description}
+        for role, agent in orchestrator.registry.items()
+    ]
 
 
 @app.get("/api/v1/provider")
