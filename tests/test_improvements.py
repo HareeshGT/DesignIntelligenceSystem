@@ -8,7 +8,7 @@ def test_github_content_decoder_accepts_wrapped_base64():
     import base64
 
     encoded = base64.b64encode(b"<!doctype html><html>site</html>").decode("ascii")
-    wrapped = encoded[:12] + "\\n" + encoded[12:]
+    wrapped = encoded[:12] + "\n" + encoded[12:]  # GitHub wraps base64 with real newlines
     assert _decode_github_content(wrapped) == "<!doctype html><html>site</html>"
 
 
@@ -256,6 +256,8 @@ def test_model_provider_failures_are_mapped_to_improvement_errors(monkeypatch):
             return {"default_branch": "main"}
         if "/git/ref/heads/" in url:
             return {"object": {"sha": "base-commit"}}
+        if "/git/trees/" in url:
+            return {"truncated": False, "tree": [{"path": "src/App.tsx", "type": "blob"}]}
         return {
             "type": "file",
             "encoding": "base64",

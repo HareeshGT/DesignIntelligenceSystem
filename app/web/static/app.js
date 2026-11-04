@@ -6,6 +6,24 @@ const CREDENTIAL_FIELDS = {provider:"dis.user.provider",model:"dis.user.model",b
 let latestVisualReport = null;
 let latestRepositoryReport = null;
 let latestProposalToken = null;
+// FastAPI returns validation errors (HTTP 422) as an array of objects in
+// `detail`. Passing that to `new Error()` rendered "[object Object]" and hid
+// the real cause, so every client error path formats it through this helper.
+function formatApiError(detail, fallback) {
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail) && detail.length) {
+    return detail.slice(0, 3).map(item => {
+      if (typeof item === "string") return item;
+      const field = Array.isArray(item && item.loc) ? item.loc.filter(part => part !== "body").join(".") : "";
+      const message = (item && (item.msg || item.message)) || "is invalid";
+      return field ? field + ": " + message : message;
+    }).join("; ");
+  }
+  if (detail && typeof detail === "object" && typeof detail.message === "string") return detail.message;
+  return fallback || "Request failed.";
+}
+window.formatApiError = formatApiError;
+
 function apiHeaders() {
   const headers = {"Content-Type":"application/json"};
   const key = sessionStorage.getItem(KEY_STORAGE);
@@ -210,7 +228,7 @@ async function inspect(event) {
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       if (response.status === 401 || response.status === 503) openSettings();
-      throw new Error(body.detail || "Repository inspection failed (HTTP " + response.status + ").");
+      throw new Error(formatApiError(body.detail, "Repository inspection failed (HTTP " + response.status + ")."));
     }
     showReport(body);
     const history = getHistory();
@@ -426,7 +444,7 @@ async function inspectVisual(event) {
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 401 || response.status === 503) openSettings();
-        throw new Error(body.detail || "Visual inspection failed (HTTP " + response.status + ").");
+        throw new Error(formatApiError(body.detail, "Visual inspection failed (HTTP " + response.status + ")."));
       }
       return body;
     });
@@ -438,7 +456,7 @@ async function inspectVisual(event) {
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 401 || response.status === 503) openSettings();
-        throw new Error(body.detail || "Repository inspection failed (HTTP " + response.status + ").");
+        throw new Error(formatApiError(body.detail, "Repository inspection failed (HTTP " + response.status + ")."));
       }
       return body;
     }) : Promise.resolve(null);
@@ -505,7 +523,7 @@ async function compareVersions(event) {
       body:JSON.stringify({baseline_url:$("baseline-url").value.trim(), candidate_url:$("candidate-url").value.trim()})
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.detail || "Visual comparison failed.");
+    if (!response.ok) throw new Error(formatApiError(body.detail, "Visual comparison failed."));
     const report = $("compare-report");
     report.replaceChildren();
     report.classList.remove("hidden");
@@ -572,12 +590,12 @@ async function proposeImprovement(event) {
         ref:$("improvement-ref").value.trim() || null,
         target_files:paths,
         findings:(latestVisualReport.findings || []).slice(0,20),
-        visual_summary:latestVisualReport.visual_summary || "",
+        visual_summary:(latestVisualReport.visual_summary || "").slice(0,10000),
         source_sharing_consent: $("source-consent").checked === true
       })
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.detail || "Could not generate the improvement proposal.");
+    if (!response.ok) throw new Error(formatApiError(body.detail, "Could not generate the improvement proposal."));
     latestProposalToken = body.proposal_token;
     const panel = $("proposal-report");
     panel.replaceChildren();
@@ -605,7 +623,7 @@ async function proposeImprovement(event) {
           body:JSON.stringify({proposal_token:latestProposalToken, approval:true})
         });
         const outcome = await result.json().catch(() => ({}));
-        if (!result.ok) throw new Error(outcome.detail || "Could not create the pull request.");
+        if (!result.ok) throw new Error(formatApiError(outcome.detail, "Could not create the pull request."));
         const link = document.createElement("a");
         link.href = outcome.pull_request_url;
         link.target = "_blank";

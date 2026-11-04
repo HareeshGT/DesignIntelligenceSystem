@@ -1,0 +1,476 @@
+From 9d7a7cc7016c9413abcc02c2922c58768abec289 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 4 Nov 2026 17:36:12 +0000
+Subject: [PATCH] Fix recurring 422 on improvement proposals at the root cause
+
+The 422 kept coming back because each earlier PR only nudged one limit
+(findings required -> summary 1600 -> summary 6000) while the clients and
+inputs that feed the endpoint did not match the API's bounds:
+
+- studio.js sends up to 10000 chars of specialist context, but
+  visual_summary was capped at 6000 -> 422 on any real multi-specialist run.
+- ImprovementFinding was strictly bounded/min_length=1 while the inspector's
+  VisualFinding is unbounded and vision models can emit any severity, so long
+  or empty fields and e.g. "critical" severity were rejected.
+- Clients threw Error(detail) with FastAPI's array detail, showing
+  "[object Object]" so the real cause was invisible.
+
+Changes:
+- Raise visual_summary to 10000 (matches clients) and trim instead of reject;
+  keep a 100k hard ceiling. Normalize/trim finding fields and severity.
+- Add formatApiError() and use it on every client error path.
+- Reject empty path segments in scope validation (doubled Windows separators).
+- Fix stale/incorrect tests that were already failing on main: literal "\\n"
+  base64 fixture, missing git tree stub, and an under-sized summary fixture
+  (1082 chars asserted > 1600) that never exercised the bug.
+- Add regression tests incl. an API-level test that fails with 422 on the
+  old code.
+---
+ app/core/improvement_models.py   |  81 ++++++++++++++++---
+ app/services/improvements.py     |   7 +-
+ app/web/static/app.js            |  32 ++++++--
+ app/web/static/studio.js         |   2 +-
+ tests/test_api.py                |  35 +++++++++
+ tests/test_improvement_models.py | 129 ++++++++++++++++++++++---------
+ tests/test_improvements.py       |   4 +-
+ 7 files changed, 233 insertions(+), 57 deletions(-)
+
+diff --git a/app/core/improvement_models.py b/app/core/improvement_models.py
+index 571ff63..bfba162 100644
+--- a/app/core/improvement_models.py
++++ b/app/core/improvement_models.py
+@@ -1,15 +1,66 @@
+-from typing import Literal
++from typing import Any, Literal
+ 
+-from pydantic import BaseModel, Field, model_validator
++from pydantic import BaseModel, Field, field_validator, model_validator
++
++# Limits are shared with the dashboard clients. studio.js and app.js send the
++# specialist handoff / visual summary truncated to MAX_VISUAL_SUMMARY_CHARS, so
++# the API must accept at least that much. Over-long free text is trimmed rather
++# than rejected: it is model *context*, and a 422 here only blocks the user.
++MAX_VISUAL_SUMMARY_CHARS = 10_000
++# Absolute ceiling so a hostile caller cannot post an unbounded body.
++HARD_MAX_TEXT_CHARS = 100_000
++
++FINDING_LIMITS = {
++    "category": 80,
++    "title": 180,
++    "description": 600,
++    "evidence": 600,
++    "recommendation": 600,
++}
++FINDING_FALLBACKS = {
++    "category": "general",
++    "title": "Untitled finding",
++    "description": "No description provided.",
++    "evidence": "No evidence provided.",
++    "recommendation": "Review and improve this area.",
++}
++SEVERITIES = {"high", "medium", "low"}
++
++
++def _truncate(value: str, limit: int) -> str:
++    value = value.strip()
++    if len(value) <= limit:
++        return value
++    return value[: limit - 1].rstrip() + "…"
+ 
+ 
+ class ImprovementFinding(BaseModel):
+-    category: str = Field(min_length=1, max_length=80)
++    category: str = Field(min_length=1, max_length=FINDING_LIMITS["category"])
+     severity: Literal["high", "medium", "low"]
+-    title: str = Field(min_length=1, max_length=180)
+-    description: str = Field(min_length=1, max_length=600)
+-    evidence: str = Field(min_length=1, max_length=600)
+-    recommendation: str = Field(min_length=1, max_length=600)
++    title: str = Field(min_length=1, max_length=FINDING_LIMITS["title"])
++    description: str = Field(min_length=1, max_length=FINDING_LIMITS["description"])
++    evidence: str = Field(min_length=1, max_length=FINDING_LIMITS["evidence"])
++    recommendation: str = Field(min_length=1, max_length=FINDING_LIMITS["recommendation"])
++
++    @model_validator(mode="before")
++    @classmethod
++    def normalize_finding(cls, data: Any):
++        """Fit findings from visual inspectors/LLMs to the bounds below.
++
++        ``VisualFinding`` has unbounded strings and the vision model can emit
++        any severity, so strict bounds here used to turn a normal audit into a
++        422 ("string_too_long" / "string_too_short" / "literal_error").
++        """
++        if not isinstance(data, dict):
++            return data
++        normalized = dict(data)
++        for key, limit in FINDING_LIMITS.items():
++            raw = normalized.get(key)
++            text = raw.strip() if isinstance(raw, str) else ("" if raw is None else str(raw).strip())
++            normalized[key] = _truncate(text, limit) if text else FINDING_FALLBACKS[key]
++        severity = str(normalized.get("severity", "")).strip().lower()
++        normalized["severity"] = severity if severity in SEVERITIES else "medium"
++        return normalized
+ 
+ 
+ class ImprovementProposalRequest(BaseModel):
+@@ -21,10 +72,22 @@ class ImprovementProposalRequest(BaseModel):
+     # A visual audit can legitimately produce zero findings. The visual summary or
+     # design brief still gives the model grounded context for a proposal.
+     findings: list[ImprovementFinding] = Field(default_factory=list, max_length=20)
+-    # Preserve the coordinated specialist handoff while keeping request size bounded.
+-    visual_summary: str = Field(default="", max_length=6000)
++    # Preserve the coordinated specialist handoff. Longer text is trimmed to
++    # MAX_VISUAL_SUMMARY_CHARS instead of failing validation.
++    visual_summary: str = Field(default="", max_length=MAX_VISUAL_SUMMARY_CHARS)
+     source_sharing_consent: Literal[True]
+ 
++    @field_validator("visual_summary", mode="before")
++    @classmethod
++    def bound_visual_summary(cls, value: Any):
++        if value is None:
++            return ""
++        if not isinstance(value, str):
++            return value
++        if len(value) > HARD_MAX_TEXT_CHARS:
++            raise ValueError(f"visual_summary must be at most {HARD_MAX_TEXT_CHARS} characters.")
++        return _truncate(value, MAX_VISUAL_SUMMARY_CHARS) if len(value) > MAX_VISUAL_SUMMARY_CHARS else value
++
+     @model_validator(mode="after")
+     def require_design_context(self):
+         if not self.findings and not self.visual_summary.strip() and not self.design_brief.strip():
+diff --git a/app/services/improvements.py b/app/services/improvements.py
+index fd67e66..1fee0df 100644
+--- a/app/services/improvements.py
++++ b/app/services/improvements.py
+@@ -71,9 +71,12 @@ def _safe_scope_path(path: str) -> bool:
+     path = _normalize_scope_path(path)
+     if path == ".":
+         return True
+-    if not path or path.startswith("/") or ".." in path.split("/"):
++    segments = path.split("/")
++    # Empty segments ("src//api.ts", e.g. from a doubled Windows separator) are
++    # malformed scopes, not something to guess a meaning for.
++    if not path or path.startswith("/") or ".." in segments or "" in segments:
+         return False
+-    parts = [part.lower() for part in path.split("/")]
++    parts = [part.lower() for part in segments]
+     return not any(part.startswith(".") or part.split(".", 1)[0] in FORBIDDEN_PATH_PARTS for part in parts)
+ 
+ 
+diff --git a/app/web/static/app.js b/app/web/static/app.js
+index 72ef9dc..fa16889 100644
+--- a/app/web/static/app.js
++++ b/app/web/static/app.js
+@@ -6,6 +6,24 @@ const CREDENTIAL_FIELDS = {provider:"dis.user.provider",model:"dis.user.model",b
+ let latestVisualReport = null;
+ let latestRepositoryReport = null;
+ let latestProposalToken = null;
++// FastAPI returns validation errors (HTTP 422) as an array of objects in
++// `detail`. Passing that to `new Error()` rendered "[object Object]" and hid
++// the real cause, so every client error path formats it through this helper.
++function formatApiError(detail, fallback) {
++  if (typeof detail === "string" && detail.trim()) return detail;
++  if (Array.isArray(detail) && detail.length) {
++    return detail.slice(0, 3).map(item => {
++      if (typeof item === "string") return item;
++      const field = Array.isArray(item && item.loc) ? item.loc.filter(part => part !== "body").join(".") : "";
++      const message = (item && (item.msg || item.message)) || "is invalid";
++      return field ? field + ": " + message : message;
++    }).join("; ");
++  }
++  if (detail && typeof detail === "object" && typeof detail.message === "string") return detail.message;
++  return fallback || "Request failed.";
++}
++window.formatApiError = formatApiError;
++
+ function apiHeaders() {
+   const headers = {"Content-Type":"application/json"};
+   const key = sessionStorage.getItem(KEY_STORAGE);
+@@ -210,7 +228,7 @@ async function inspect(event) {
+     const body = await response.json().catch(() => ({}));
+     if (!response.ok) {
+       if (response.status === 401 || response.status === 503) openSettings();
+-      throw new Error(body.detail || "Repository inspection failed (HTTP " + response.status + ").");
++      throw new Error(formatApiError(body.detail, "Repository inspection failed (HTTP " + response.status + ")."));
+     }
+     showReport(body);
+     const history = getHistory();
+@@ -426,7 +444,7 @@ async function inspectVisual(event) {
+       const body = await response.json().catch(() => ({}));
+       if (!response.ok) {
+         if (response.status === 401 || response.status === 503) openSettings();
+-        throw new Error(body.detail || "Visual inspection failed (HTTP " + response.status + ").");
++        throw new Error(formatApiError(body.detail, "Visual inspection failed (HTTP " + response.status + ")."));
+       }
+       return body;
+     });
+@@ -438,7 +456,7 @@ async function inspectVisual(event) {
+       const body = await response.json().catch(() => ({}));
+       if (!response.ok) {
+         if (response.status === 401 || response.status === 503) openSettings();
+-        throw new Error(body.detail || "Repository inspection failed (HTTP " + response.status + ").");
++        throw new Error(formatApiError(body.detail, "Repository inspection failed (HTTP " + response.status + ")."));
+       }
+       return body;
+     }) : Promise.resolve(null);
+@@ -505,7 +523,7 @@ async function compareVersions(event) {
+       body:JSON.stringify({baseline_url:$("baseline-url").value.trim(), candidate_url:$("candidate-url").value.trim()})
+     });
+     const body = await response.json().catch(() => ({}));
+-    if (!response.ok) throw new Error(body.detail || "Visual comparison failed.");
++    if (!response.ok) throw new Error(formatApiError(body.detail, "Visual comparison failed."));
+     const report = $("compare-report");
+     report.replaceChildren();
+     report.classList.remove("hidden");
+@@ -572,12 +590,12 @@ async function proposeImprovement(event) {
+         ref:$("improvement-ref").value.trim() || null,
+         target_files:paths,
+         findings:(latestVisualReport.findings || []).slice(0,20),
+-        visual_summary:latestVisualReport.visual_summary || "",
++        visual_summary:(latestVisualReport.visual_summary || "").slice(0,10000),
+         source_sharing_consent: $("source-consent").checked === true
+       })
+     });
+     const body = await response.json().catch(() => ({}));
+-    if (!response.ok) throw new Error(body.detail || "Could not generate the improvement proposal.");
++    if (!response.ok) throw new Error(formatApiError(body.detail, "Could not generate the improvement proposal."));
+     latestProposalToken = body.proposal_token;
+     const panel = $("proposal-report");
+     panel.replaceChildren();
+@@ -605,7 +623,7 @@ async function proposeImprovement(event) {
+           body:JSON.stringify({proposal_token:latestProposalToken, approval:true})
+         });
+         const outcome = await result.json().catch(() => ({}));
+-        if (!result.ok) throw new Error(outcome.detail || "Could not create the pull request.");
++        if (!result.ok) throw new Error(formatApiError(outcome.detail, "Could not create the pull request."));
+         const link = document.createElement("a");
+         link.href = outcome.pull_request_url;
+         link.target = "_blank";
+diff --git a/app/web/static/studio.js b/app/web/static/studio.js
+index 1a3637c..a8ef99b 100644
+--- a/app/web/static/studio.js
++++ b/app/web/static/studio.js
+@@ -13,7 +13,7 @@ function render(d){
+  });
+  sec.append(el("h2","","Design team decisions"),grid,el("p","privacy-caption","AI recommendations are not implementation verification. Review the diff and run project checks before merging."));
+ }
+-async function json(url,body){const r=await fetch(url,{method:"POST",headers:apiHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401||r.status===503)openSettings();throw Error(d.detail||"Request failed ("+r.status+")")}return d}
++async function json(url,body){const r=await fetch(url,{method:"POST",headers:apiHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401||r.status===503)openSettings();throw Error(window.formatApiError?window.formatApiError(d.detail,"Request failed ("+r.status+")"):(typeof d.detail==="string"?d.detail:"Request failed ("+r.status+")"))}return d}
+ async function start(e){
+  e.preventDefault();$("studio-error").textContent="";$("studio-proposal-error").textContent="";$("studio-implementation").classList.add("hidden");$("studio-design-report").classList.add("hidden");$("studio-proposal").classList.add("hidden");run=repo=token=null;
+  const repository=$("studio-repository").value.trim(),brief=$("studio-brief").value.trim(),base=$("studio-base-branch").value.trim()||null,b=$("studio-submit");b.disabled=true;b.querySelector(".button-label").textContent="Coordinating specialist team…";
+diff --git a/tests/test_api.py b/tests/test_api.py
+index e1b6b6c..2a7c09e 100644
+--- a/tests/test_api.py
++++ b/tests/test_api.py
+@@ -229,3 +229,38 @@ def test_request_scoped_llm_key_does_not_require_server_shared_key_for_visual_in
+         json={"url": "https://example.com"},
+     )
+     assert response.status_code == 200
++
++
++def test_improvement_proposal_accepts_studio_sized_payload_before_auth(monkeypatch):
++    """Regression: the Studio client sends up to 10000 chars of specialist context.
++
++    A 422 here (validation) would mask everything behind it; getting the 401 means
++    the payload passed request validation and reached the API-key check.
++    """
++    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "expected-secret")
++    response = client.post(
++        "/api/v1/improvements/propose",
++        headers={"X-DIS-API-Key": "wrong"},
++        json={
++            "repository": "owner/repo",
++            "target_files": ["src/App.tsx"],
++            "design_brief": "Redesign the dashboard. " * 200,
++            "findings": [{
++                "category": "design_brief", "severity": "Critical", "title": "t" * 400,
++                "description": "d" * 2000, "evidence": "", "recommendation": "r" * 2000,
++            }],
++            "visual_summary": "Specialist: " + "context " * 1500,
++            "source_sharing_consent": True,
++        },
++    )
++    assert response.status_code == 401
++
++
++def test_improvement_proposal_validation_errors_are_still_422(monkeypatch):
++    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "expected-secret")
++    response = client.post(
++        "/api/v1/improvements/propose",
++        headers={"X-DIS-API-Key": "expected-secret"},
++        json={"repository": "owner/repo", "target_files": [], "source_sharing_consent": True},
++    )
++    assert response.status_code == 422
+diff --git a/tests/test_improvement_models.py b/tests/test_improvement_models.py
+index 55ec9ca..ddec84c 100644
+--- a/tests/test_improvement_models.py
++++ b/tests/test_improvement_models.py
+@@ -1,50 +1,105 @@
+-from app.core.improvement_models import ImprovementProposalRequest
+-
+-
+-def test_improvement_proposal_accepts_multi_specialist_visual_summary():
+-    summary = "\n".join(
+-        f"{role}: Evaluate the product-specific design direction, hierarchy, "
+-        "accessibility, reusable components, responsive behavior, and visual quality."
+-        for role in (
+-            "Creative Director",
+-            "UX Architect",
+-            "Visual Designer",
+-            "Design Systems Engineer",
+-            "Frontend Engineer",
+-            "Visual QA Engineer",
+-            "Design Director",
+-        )
+-    )
+-    assert len(summary) > 1600
++import pytest
++from pydantic import ValidationError
++
++from app.core.improvement_models import (
++    HARD_MAX_TEXT_CHARS,
++    MAX_VISUAL_SUMMARY_CHARS,
++    ImprovementFinding,
++    ImprovementProposalRequest,
++)
++
++ROLES = (
++    "Creative Director",
++    "UX Architect",
++    "Visual Designer",
++    "Design Systems Engineer",
++    "Frontend Engineer",
++    "Visual QA Engineer",
++    "Design Director",
++)
+ 
+-    request = ImprovementProposalRequest(
++
++def _request(**overrides):
++    payload = dict(
+         repository="HareeshGT/NeighbourCommunityForum",
+         ref="main",
+         branch_name="dis/redesign",
+         design_brief="Review opportunities for UI improvements.",
+-        target_files=[
+-            "frontend/src/App.css",
+-            "frontend/src/App.jsx",
+-            "frontend/src/index.css",
+-            "frontend/src/main.jsx",
+-        ],
++        target_files=["frontend/src/App.css", "frontend/src/App.jsx"],
+         findings=[],
+-        visual_summary=summary,
++        visual_summary="",
+         source_sharing_consent=True,
+     )
++    payload.update(overrides)
++    return ImprovementProposalRequest(**payload)
++
++
++def _specialist_summary(sentences_per_role: int) -> str:
++    body = (
++        "Evaluate the product-specific design direction, hierarchy, accessibility, "
++        "reusable components, responsive behavior, and visual quality. "
++    ) * sentences_per_role
++    return "\n".join(f"{role}: {body.strip()}" for role in ROLES)
++
++
++def test_realistic_multi_specialist_summary_beyond_old_limits_is_accepted():
++    # ~7.7k characters: above the old 1600 and 6000 limits that caused repeated 422s,
++    # and within the 10000 characters the Studio client sends.
++    summary = _specialist_summary(8)
++    assert 6000 < len(summary) <= MAX_VISUAL_SUMMARY_CHARS
++
++    assert _request(visual_summary=summary).visual_summary == summary
++
++
++def test_client_sized_summary_is_never_rejected_for_length():
++    # studio.js slices the specialist context to exactly 10000 characters.
++    assert len(_request(visual_summary="x" * 10_000).visual_summary) == 10_000
++
++
++def test_overlong_summary_is_trimmed_not_rejected():
++    request = _request(visual_summary="x" * 25_000)
++    assert len(request.visual_summary) == MAX_VISUAL_SUMMARY_CHARS
++
++
++def test_absurdly_large_summary_is_still_rejected():
++    with pytest.raises(ValidationError):
++        _request(visual_summary="x" * (HARD_MAX_TEXT_CHARS + 1))
++
++
++def test_long_empty_or_odd_findings_are_normalized_instead_of_rejected():
++    request = _request(
++        findings=[
++            {
++                "category": "c" * 200,
++                "severity": "Critical",
++                "title": "t" * 500,
++                "description": "d" * 5000,
++                "evidence": "",
++                "recommendation": "  ",
++            }
++        ]
++    )
++    finding = request.findings[0]
++    assert len(finding.category) <= 80
++    assert len(finding.title) <= 180
++    assert len(finding.description) <= 600
++    assert finding.severity == "medium"
++    assert finding.evidence and finding.recommendation
+ 
+-    assert request.visual_summary == summary
+ 
++def test_valid_finding_is_unchanged_apart_from_whitespace():
++    finding = ImprovementFinding(
++        category="accessibility",
++        severity="HIGH",
++        title="Missing labels",
++        description="Inputs lack labels.",
++        evidence="3 of 4 inputs unlabeled.",
++        recommendation="Add <label> elements.",
++    )
++    assert finding.severity == "high"
++    assert finding.title == "Missing labels"
+ 
+-def test_improvement_proposal_still_bounds_visual_summary_length():
+-    import pytest
+-    from pydantic import ValidationError
+ 
++def test_proposal_still_requires_some_design_context():
+     with pytest.raises(ValidationError):
+-        ImprovementProposalRequest(
+-            repository="owner/repo",
+-            target_files=["src/App.jsx"],
+-            design_brief="Improve the UI.",
+-            visual_summary="x" * 6001,
+-            source_sharing_consent=True,
+-        )
++        _request(design_brief="", visual_summary="", findings=[])
+diff --git a/tests/test_improvements.py b/tests/test_improvements.py
+index e105f7e..5e63b7b 100644
+--- a/tests/test_improvements.py
++++ b/tests/test_improvements.py
+@@ -8,7 +8,7 @@ def test_github_content_decoder_accepts_wrapped_base64():
+     import base64
+ 
+     encoded = base64.b64encode(b"<!doctype html><html>site</html>").decode("ascii")
+-    wrapped = encoded[:12] + "\\n" + encoded[12:]
++    wrapped = encoded[:12] + "\n" + encoded[12:]  # GitHub wraps base64 with real newlines
+     assert _decode_github_content(wrapped) == "<!doctype html><html>site</html>"
+ 
+ 
+@@ -256,6 +256,8 @@ def test_model_provider_failures_are_mapped_to_improvement_errors(monkeypatch):
+             return {"default_branch": "main"}
+         if "/git/ref/heads/" in url:
+             return {"object": {"sha": "base-commit"}}
++        if "/git/trees/" in url:
++            return {"truncated": False, "tree": [{"path": "src/App.tsx", "type": "blob"}]}
+         return {
+             "type": "file",
+             "encoding": "base64",
+-- 
+2.43.0
+

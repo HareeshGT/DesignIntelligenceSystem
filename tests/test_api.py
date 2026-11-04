@@ -229,3 +229,38 @@ def test_request_scoped_llm_key_does_not_require_server_shared_key_for_visual_in
         json={"url": "https://example.com"},
     )
     assert response.status_code == 200
+
+
+def test_improvement_proposal_accepts_studio_sized_payload_before_auth(monkeypatch):
+    """Regression: the Studio client sends up to 10000 chars of specialist context.
+
+    A 422 here (validation) would mask everything behind it; getting the 401 means
+    the payload passed request validation and reached the API-key check.
+    """
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "expected-secret")
+    response = client.post(
+        "/api/v1/improvements/propose",
+        headers={"X-DIS-API-Key": "wrong"},
+        json={
+            "repository": "owner/repo",
+            "target_files": ["src/App.tsx"],
+            "design_brief": "Redesign the dashboard. " * 200,
+            "findings": [{
+                "category": "design_brief", "severity": "Critical", "title": "t" * 400,
+                "description": "d" * 2000, "evidence": "", "recommendation": "r" * 2000,
+            }],
+            "visual_summary": "Specialist: " + "context " * 1500,
+            "source_sharing_consent": True,
+        },
+    )
+    assert response.status_code == 401
+
+
+def test_improvement_proposal_validation_errors_are_still_422(monkeypatch):
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "expected-secret")
+    response = client.post(
+        "/api/v1/improvements/propose",
+        headers={"X-DIS-API-Key": "expected-secret"},
+        json={"repository": "owner/repo", "target_files": [], "source_sharing_consent": True},
+    )
+    assert response.status_code == 422

@@ -71,9 +71,12 @@ def _safe_scope_path(path: str) -> bool:
     path = _normalize_scope_path(path)
     if path == ".":
         return True
-    if not path or path.startswith("/") or ".." in path.split("/"):
+    segments = path.split("/")
+    # Empty segments ("src//api.ts", e.g. from a doubled Windows separator) are
+    # malformed scopes, not something to guess a meaning for.
+    if not path or path.startswith("/") or ".." in segments or "" in segments:
         return False
-    parts = [part.lower() for part in path.split("/")]
+    parts = [part.lower() for part in segments]
     return not any(part.startswith(".") or part.split(".", 1)[0] in FORBIDDEN_PATH_PARTS for part in parts)
 
 

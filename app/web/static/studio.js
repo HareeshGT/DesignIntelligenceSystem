@@ -13,7 +13,7 @@ function render(d){
  });
  sec.append(el("h2","","Design team decisions"),grid,el("p","privacy-caption","AI recommendations are not implementation verification. Review the diff and run project checks before merging."));
 }
-async function json(url,body){const r=await fetch(url,{method:"POST",headers:apiHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401||r.status===503)openSettings();throw Error(d.detail||"Request failed ("+r.status+")")}return d}
+async function json(url,body){const r=await fetch(url,{method:"POST",headers:apiHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401||r.status===503)openSettings();throw Error(window.formatApiError?window.formatApiError(d.detail,"Request failed ("+r.status+")"):(typeof d.detail==="string"?d.detail:"Request failed ("+r.status+")"))}return d}
 async function start(e){
  e.preventDefault();$("studio-error").textContent="";$("studio-proposal-error").textContent="";$("studio-implementation").classList.add("hidden");$("studio-design-report").classList.add("hidden");$("studio-proposal").classList.add("hidden");run=repo=token=null;
  const repository=$("studio-repository").value.trim(),brief=$("studio-brief").value.trim(),base=$("studio-base-branch").value.trim()||null,b=$("studio-submit");b.disabled=true;b.querySelector(".button-label").textContent="Coordinating specialist team…";
