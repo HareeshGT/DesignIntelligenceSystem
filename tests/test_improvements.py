@@ -1,8 +1,16 @@
 import pytest
 
 from app.core.improvement_models import ImprovementProposalRequest
-from app.services.improvements import ImprovementError, ImprovementService, _repository_parts, _normalize_scope_path, _safe_scope_path, _safe_source_path, _ui_source_score
+from app.services.improvements import ImprovementError, ImprovementService, _repository_parts, _normalize_scope_path, _safe_scope_path, _safe_source_path, _ui_source_score, _decode_github_content
 from app.services.llm import ProviderError
+
+def test_github_content_decoder_accepts_wrapped_base64():
+    import base64
+
+    encoded = base64.b64encode(b"<!doctype html><html>site</html>").decode("ascii")
+    wrapped = encoded[:12] + "\\n" + encoded[12:]
+    assert _decode_github_content(wrapped) == "<!doctype html><html>site</html>"
+
 
 def test_only_existing_frontend_source_paths_are_allowed():
     assert _safe_source_path("src/pages/Dashboard.tsx")
