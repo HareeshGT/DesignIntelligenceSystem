@@ -232,7 +232,7 @@ class GitHubRepositoryInspector:
     def _priority(item: dict[str, Any]) -> tuple[int, int, str]:
         path = item["path"]
         name = path.rsplit("/", 1)[-1].lower()
-        if name in PRIORITY_NAMES or name in {"main.py", "main_window.py", "themes.py", "ui_kit.py"}:
+        if name in PRIORITY_NAMES or name in {"main.py", "main_window.py", "themes.py", "ui_kit.py", "static_content.py"}:
             score = 0
         elif name == "readme.md":
             score = 1
