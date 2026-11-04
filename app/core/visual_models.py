@@ -8,7 +8,6 @@ class VisualInspectionRequest(BaseModel):
     analyze_with_vision: bool = True
     crawl_internal_routes: bool = False
     max_routes: int = Field(default=4, ge=1, le=8)
-    analyze_with_vision: bool = True
 
 
 class ViewportEvidence(BaseModel):
