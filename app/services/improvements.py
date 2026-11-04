@@ -51,7 +51,7 @@ def _repository_parts(value: str) -> tuple[str, str]:
 
 def _normalize_scope_path(path: str) -> str:
     """Normalize common user-entered repository scopes without allowing traversal."""
-    value = path.strip().replace("\\\\", "/")
+    value = path.strip().replace("\\", "/")
     while value.startswith("./"):
         value = value[2:]
     value = value.rstrip("/")
