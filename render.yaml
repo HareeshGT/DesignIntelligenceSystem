@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: design-intelligence-system
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: DIS_DATABASE_PATH
+        value: /data/design_intelligence.db
+      - key: DIS_REPOSITORY_INSPECTION_API_KEY
+        generateValue: true
+      - key: DIS_PROPOSAL_SIGNING_KEY
+        generateValue: true
