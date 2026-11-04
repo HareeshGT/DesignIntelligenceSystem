@@ -5,6 +5,9 @@ from app.services.improvements import ImprovementError, ImprovementService, _rep
 def test_only_existing_frontend_source_paths_are_allowed():
     assert _safe_source_path("src/pages/Dashboard.tsx")
     assert _safe_source_path("styles/app.css")
+    assert _safe_source_path("lib/screens/home_screen.dart")
+    assert _safe_source_path("Sources/SettingsView.swift")
+    assert _safe_source_path("app/src/main/java/ui/HomeScreen.kt")
     assert not _safe_source_path("../secrets.ts")
     assert not _safe_source_path(".github/workflows/release.yml")
     assert not _safe_source_path("package.json")
