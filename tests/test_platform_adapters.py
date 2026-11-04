@@ -59,3 +59,10 @@ def test_react_native_does_not_claim_browser_audit_from_react_dependency():
     assert "react-native" in ids
     assert "web-browser" not in ids
     assert all(isinstance(profile["limitations"], tuple) for profile in profiles)
+
+
+def test_all_single_platform_profiles_serialize_limitations_as_tuples():
+    for framework in ("Electron", "React Native", "Flutter", "Swift / Apple platform"):
+        profiles = resolve_platform_profiles([framework], [])
+        assert profiles
+        assert all(isinstance(profile["limitations"], tuple) for profile in profiles)
