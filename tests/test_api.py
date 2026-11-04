@@ -89,3 +89,22 @@ def test_visual_inspection_rejects_localhost_before_browser_launch(monkeypatch):
         json={"url": "http://localhost:8000"},
     )
     assert response.status_code == 400
+
+
+def test_improvement_endpoints_require_shared_api_key(monkeypatch):
+    monkeypatch.delenv("DIS_REPOSITORY_INSPECTION_API_KEY", raising=False)
+    response = client.post(
+        "/api/v1/improvements/propose",
+        json={"repository":"owner/repo","target_files":["src/App.tsx"],"findings":[{"title":"test"}]},
+    )
+    assert response.status_code == 503
+
+
+def test_improvement_endpoints_reject_invalid_api_key(monkeypatch):
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "expected-secret")
+    response = client.post(
+        "/api/v1/improvements/propose",
+        headers={"X-DIS-API-Key":"wrong"},
+        json={"repository":"owner/repo","target_files":["src/App.tsx"],"findings":[{"title":"test"}]},
+    )
+    assert response.status_code == 401
