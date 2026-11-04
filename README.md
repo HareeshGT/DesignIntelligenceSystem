@@ -12,7 +12,7 @@ A standalone, provider-backed design intelligence foundation for improving web, 
 - Project-scoped SQLite memory, permission policy, quality rubric, and FastAPI API.
 - Provider status endpoint exposes configuration metadata only; API keys are never returned.
 
-> **Important capability boundary:** DIS can inspect GitHub repository metadata and can now launch an isolated Playwright browser against a supplied public web URL, capture desktop/tablet/mobile screenshots, and audit observable DOM/layout/accessibility signals. This first visual milestone does not yet use a vision model to interpret screenshot aesthetics, crawl linked routes, authenticate, edit source code, or perform visual regression testing.
+> **Capability boundary:** DIS can inspect GitHub repositories read-only, inspect deployed public web URLs in Chromium, use configured multimodal models to interpret screenshots, optionally crawl a bounded set of same-origin routes, prepare constrained frontend patches, and create a GitHub pull request only after explicit approval. It does not yet execute a repository checkout or build an arbitrary repository in a managed preview sandbox. Native desktop/mobile app automation and authenticated route journeys are not currently supported.
 
 ## Architecture
 
@@ -105,7 +105,7 @@ DIS includes a browser-based workspace served by the FastAPI application:
 - Open `http://127.0.0.1:8000/` for the dashboard.
 - **Overview** shows API health, provider mode, and recent inspections.
 - **Repository inspector** accepts a GitHub URL or `owner/name`, with an optional branch/tag/commit ref.
-- **Visual inspection** opens a public web URL in Chromium, captures desktop/tablet/mobile screenshots, and displays responsive and accessibility findings.
+- **Visual inspection** opens a public web URL in Chromium, captures desktop/tablet/mobile screenshots, optionally explores same-origin routes, and displays deterministic and multimodal design findings.\n- **Visual comparison** compares two deployed versions and shows screenshot change metrics plus resolved/new findings.\n- **UI improvement proposal** generates a bounded frontend patch for selected GitHub files, displays the diff, and opens a PR only after explicit approval.
 - **Architecture report** displays detected stacks/frameworks, entry points, routes, components/styles, design-system signals, declared commands, sampled file evidence, and limitations.
 - **Inspection history** is stored in the current browser's local storage. It can be cleared from the History page.
 - If the server requires `DIS_REPOSITORY_INSPECTION_API_KEY`, enter that shared key in dashboard settings. It is stored in session storage for the current browser tab only. Do not enter a GitHub personal access token in the browser; configure `DIS_GITHUB_TOKEN` on the server.
@@ -148,7 +148,7 @@ The container runs as a non-root user, includes a health check, and stores SQLit
 - `GET /api/v1/agents` — registered roles
 - `GET /api/v1/provider` — safe provider configuration status (never returns the key)
 - `POST /api/v1/design/runs` — dynamically select specialists and orchestrate a design brief
-- `POST /api/v1/visual/inspect` — capture and audit a public web page at three viewport sizes
+- `POST /api/v1/visual/inspect` — capture and audit a public web page at three viewport sizes\n- `POST /api/v1/visual/compare` — compare before/after screenshots and deterministic findings\n- `POST /api/v1/improvements/propose` — generate a signed, reviewable frontend patch proposal\n- `POST /api/v1/improvements/apply` — create a PR from an approved proposal
 - `POST /api/v1/permissions/evaluate` — evaluate an action against autonomy policy
 
 Example:
