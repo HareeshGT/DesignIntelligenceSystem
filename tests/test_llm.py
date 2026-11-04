@@ -152,6 +152,39 @@ def test_gemini_rejects_openai_endpoint_instead_of_sending_key_to_openai():
         provider.complete_json("system", "prompt")
 
 
+def test_gemini_uses_openai_compatible_google_endpoint(monkeypatch):
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": '{"ok":true}'}}]}
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured["payload"] = kwargs["json"]
+        return Response()
+
+    monkeypatch.setattr("app.services.llm.httpx.post", fake_post)
+    monkeypatch.setattr(
+        "app.services.llm.socket.getaddrinfo",
+        lambda *args, **kwargs: [(None, None, None, None, ("93.184.216.34", 443))],
+    )
+    provider = LLMProvider(
+        provider="gemini",
+        api_key="test-gemini-key",
+        model="gemini-2.5-flash",
+    )
+
+    assert provider.complete_json("system", "prompt") == {"ok": True}
+    assert captured["url"] == (
+        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    )
+    assert captured["payload"]["model"] == "gemini-2.5-flash"
+
+
 def test_provider_http_errors_expose_safe_diagnostic_and_redact_api_key(monkeypatch):
     import httpx
 
