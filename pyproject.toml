@@ -19,3 +19,10 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.setuptools.packages.find]
+include = ["app", "app.*"]
+exclude = ["tests*", "prompts*"]
+
+[tool.setuptools.package-data]
+app = ["web/static/*.html", "web/static/*.css", "web/static/*.js"]
