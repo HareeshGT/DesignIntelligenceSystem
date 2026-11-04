@@ -63,9 +63,11 @@ class ImprovementService:
 
     def _request(self, method: str, url: str, *, write: bool = False, **kwargs):
         token = self.write_token if write else (self.read_token or self.write_token)
-        if not token:
-            raise ImprovementError("Configure a least-privilege GitHub token on the DIS server.")
-        headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Authorization": f"Bearer {token}", "User-Agent": "Design-Intelligence-System"}
+        if write and not token:
+            raise ImprovementError("Configure DIS_GITHUB_WRITE_TOKEN with least-privilege write permissions.")
+        headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Design-Intelligence-System"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         try:
             response = httpx.request(method, url, headers=headers, timeout=30, **kwargs)
         except httpx.HTTPError as exc:
