@@ -43,3 +43,16 @@ def test_repository_inspection_rejects_invalid_repository_identifier(monkeypatch
         json={"repository": "invalid/too/many/segments"},
     )
     assert response.status_code == 400
+
+
+def test_dashboard_is_served():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Design Intelligence System" in response.text
+    assert "/static/app.css" in response.text
+
+
+def test_dashboard_assets_are_served():
+    response = client.get("/static/app.js")
+    assert response.status_code == 200
+    assert "api/v1/repositories/inspect" in response.text
