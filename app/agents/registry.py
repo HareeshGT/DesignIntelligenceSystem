@@ -6,7 +6,7 @@ from app.services.llm import LLMProvider
 
 def build_default_registry(llm: LLMProvider | None = None) -> dict[AgentRole, object]:
     agents = [
-        DesignDirector(),
+        DesignDirector(llm),
         SpecialistAgent(AgentRole.CREATIVE, "Creative direction and concept development", [
             "originality", "art direction", "brand differentiation", "visual references"], llm),
         SpecialistAgent(AgentRole.UX, "User experience and information architecture", [
