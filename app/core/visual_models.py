@@ -6,6 +6,7 @@ class VisualInspectionRequest(BaseModel):
     capture_screenshots: bool = True
     page_timeout_ms: int = Field(default=20000, ge=3000, le=60000)
     analyze_with_vision: bool = True
+    analyze_with_vision: bool = True
 
 
 class ViewportEvidence(BaseModel):
