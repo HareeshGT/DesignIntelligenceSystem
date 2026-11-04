@@ -52,7 +52,7 @@ class LLMProvider:
             return parsed
         except ProviderError:
             raise
-        except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
             raise ProviderError("Model provider request failed or returned an invalid response") from exc
 
     def _openai_compatible(self, system: str, prompt: str) -> str:
