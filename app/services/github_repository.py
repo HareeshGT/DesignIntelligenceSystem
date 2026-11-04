@@ -10,6 +10,7 @@ import httpx
 
 from app.core.repository_models import RepositoryFileEvidence, RepositoryInspection
 from app.services.llm import LLMProvider, ProviderError
+from app.services.platform_adapters import resolve_platform_profiles
 
 
 API_ROOT = "https://api.github.com"
@@ -219,6 +220,7 @@ class GitHubRepositoryInspector:
             default_branch=metadata.get("default_branch"),
             description=metadata.get("description"), primary_language=metadata.get("language"),
             detected_stacks=stacks, package_managers=managers, frameworks=frameworks,
+            platform_profiles=resolve_platform_profiles(frameworks, stacks),
             app_entry_points=entry_points, route_and_page_files=route_files,
             component_and_style_files=component_files, design_system_evidence=design_evidence,
             test_and_lint_commands=commands, repository_signals=signals,
