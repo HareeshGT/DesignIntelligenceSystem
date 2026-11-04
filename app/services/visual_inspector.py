@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import ipaddress
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from playwright.sync_api import Browser, Error as PlaywrightError, sync_playwright
 
@@ -11,6 +11,7 @@ from app.services.llm import ProviderError
 from app.services.visual_design import VisualDesignAnalyzer
 
 from app.core.visual_models import (
+    InspectedPage,
     ViewportEvidence,
     VisualFinding,
     VisualInspectionRequest,
@@ -189,6 +190,8 @@ class VisualInspector:
         page_title = ""
         final_url = target
         status_code: int | None = None
+        inspected_pages: list[InspectedPage] = []
+        discovered_routes: list[str] = []
 
         try:
             with sync_playwright() as playwright:
@@ -215,6 +218,26 @@ class VisualInspector:
                             metrics = _collect_metrics(page)
                             page_title = str(metrics.get("title") or page_title)
                             final_url = page.url
+                            if name == "desktop":
+                                inspected_pages.append(InspectedPage(url=page.url, title=page_title, status_code=response.status if response else None))
+                                if request.crawl_internal_routes:
+                                    original = urlparse(target)
+                                    hrefs = page.eval_on_selector_all("a[href]", "items => items.map(item => item.href)")[:100]
+                                    for href in hrefs:
+                                        candidate = urlparse(urljoin(page.url, href))
+                                        if candidate.scheme not in {"http", "https"} or candidate.hostname != original.hostname or candidate.port != original.port:
+                                            continue
+                                        if candidate.path == original.path or any(word in candidate.path.lower() for word in ("logout", "signout", "delete", "remove", "unsubscribe", "checkout", "purchase")):
+                                            continue
+                                        route = candidate._replace(query="", fragment="").geturl()
+                                        try:
+                                            _validate_public_url(route)
+                                        except VisualInspectionError:
+                                            continue
+                                        if route not in discovered_routes:
+                                            discovered_routes.append(route)
+                                        if len(discovered_routes) >= request.max_routes:
+                                            break
                             status_code = response.status if response else status_code
                             findings.extend(_findings(metrics, name))
                             for key, value in metrics.items():
@@ -239,6 +262,37 @@ class VisualInspector:
                             context.close()
                 finally:
                     browser.close()
+                if request.crawl_internal_routes and discovered_routes:
+                    route_browser = playwright.chromium.launch(
+                        headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"]
+                    )
+                    try:
+                        for route_url in discovered_routes[:request.max_routes]:
+                            route_context = route_browser.new_context(
+                                viewport={"width": 1440, "height": 1000},
+                                service_workers="block", accept_downloads=False,
+                            )
+                            route_page = route_context.new_page()
+                            route_page.route("**/*", _safe_route)
+                            try:
+                                route_response = route_page.goto(
+                                    route_url, wait_until="domcontentloaded",
+                                    timeout=request.page_timeout_ms,
+                                )
+                                route_page.wait_for_timeout(300)
+                                route_metrics = _collect_metrics(route_page)
+                                findings.extend(_findings(route_metrics, "desktop"))
+                                inspected_pages.append(InspectedPage(
+                                    url=route_page.url,
+                                    title=str(route_metrics.get("title", "")),
+                                    status_code=route_response.status if route_response else None,
+                                ))
+                            except PlaywrightError:
+                                inspected_pages.append(InspectedPage(url=route_url, title="", status_code=None))
+                            finally:
+                                route_context.close()
+                    finally:
+                        route_browser.close()
         except VisualInspectionError:
             raise
         except Exception as exc:
@@ -291,12 +345,13 @@ class VisualInspector:
             findings=findings,
             metrics=aggregate,
             viewports=viewports,
+            inspected_pages=inspected_pages,
             visual_summary=visual_summary,
             design_observations=design_observations,
             design_system_signals=design_system_signals,
             analysis_mode=analysis_mode,
             limitations=vision_limitations + [
-                "Only the supplied URL is inspected. Linked routes and authenticated pages are not crawled.",
+                "Only same-origin anchor routes are optionally crawled, up to the configured limit; authenticated and interaction-only routes are not explored.",
                 "A clean result is not a WCAG conformance certification or proof of usability.",
                 "Public internet targets only; local/private network addresses and redirects to them are blocked.",
             ],
