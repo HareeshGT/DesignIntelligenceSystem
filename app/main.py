@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -62,6 +63,10 @@ def provider_status():
         "provider": llm.provider if llm.enabled else None,
         "model": llm.model if llm.enabled else None,
         "mode": "llm" if llm.enabled else "deterministic",
+        "vision_configured": bool(
+            (os.getenv("DIS_VISION_LLM_API_KEY") or os.getenv("DIS_LLM_API_KEY", "")).strip()
+            and (os.getenv("DIS_VISION_LLM_MODEL") or os.getenv("DIS_LLM_MODEL", "")).strip()
+        ),
     }
 
 
