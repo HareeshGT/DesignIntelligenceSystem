@@ -49,9 +49,10 @@ class VisualDesignAnalyzer:
             severity = item.get("severity", "medium")
             if severity not in {"high", "medium", "low"}:
                 severity = "medium"
+            limits = {"category": 80, "title": 180, "description": 600, "evidence": 600, "recommendation": 600}
             fields = {
-                key: str(item.get(key, ""))[:600]
-                for key in ("category", "title", "description", "evidence", "recommendation")
+                key: str(item.get(key, ""))[:limit]
+                for key, limit in limits.items()
             }
             if all(fields.values()):
                 findings.append(VisualFinding(severity=severity, **fields))
