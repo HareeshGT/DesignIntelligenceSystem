@@ -129,3 +129,32 @@ def test_visual_endpoint_rejects_non_ascii_api_key_without_server_error(monkeypa
         json={"url": "http://localhost:8000"},
     )
     assert response.status_code == 401
+
+
+def test_provider_status_uses_resolved_vision_provider_configuration(monkeypatch):
+    monkeypatch.setenv("DIS_LLM_PROVIDER", "openai-compatible")
+    monkeypatch.setenv("DIS_LLM_API_KEY", "text-secret")
+    monkeypatch.setenv("DIS_LLM_MODEL", "text-model")
+    monkeypatch.setenv("DIS_LLM_BASE_URL", "https://text-provider.example/v1")
+    for name in ("DIS_VISION_LLM_PROVIDER", "DIS_VISION_LLM_API_KEY", "DIS_VISION_LLM_MODEL", "DIS_VISION_LLM_BASE_URL"):
+        monkeypatch.delenv(name, raising=False)
+
+    response = client.get("/api/v1/provider")
+    assert response.status_code == 200
+    assert response.json()["vision_configured"] is True
+    assert response.json()["vision_provider"] == "openai-compatible"
+
+
+def test_provider_status_does_not_report_partial_vision_config_as_enabled(monkeypatch):
+    monkeypatch.setenv("DIS_LLM_API_KEY", "text-secret")
+    monkeypatch.setenv("DIS_LLM_MODEL", "text-model")
+    monkeypatch.setenv("DIS_LLM_BASE_URL", "https://text-provider.example/v1")
+    monkeypatch.delenv("DIS_VISION_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("DIS_VISION_LLM_API_KEY", "")
+    monkeypatch.setenv("DIS_VISION_LLM_MODEL", "vision-model")
+    monkeypatch.delenv("DIS_VISION_LLM_BASE_URL", raising=False)
+
+    response = client.get("/api/v1/provider")
+    assert response.status_code == 200
+    assert response.json()["vision_configured"] is False
+    assert response.json()["vision_provider"] is None
