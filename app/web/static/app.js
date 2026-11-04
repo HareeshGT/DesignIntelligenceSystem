@@ -471,7 +471,7 @@ async function inspectVisual(event) {
       $("improvement-repo").value = repositoryReport.repository;
       $("improvement-ref").value = repositoryReport.ref;
       const suggested = [...(repositoryReport.component_and_style_files || []), ...(repositoryReport.app_entry_points || [])]
-        .filter(path => /\.(tsx|jsx|ts|js|vue|svelte|html|css|scss|dart|swift|kt|kts|qml|ui|m|mm)$/i.test(path))
+        .filter(path => /\.(tsx|jsx|ts|js|vue|svelte|html|css|scss|dart|swift|kt|kts|qml|ui|m|mm|py|qss)$/i.test(path))
         .slice(0,4);
       if (!$("improvement-files").value.trim() && suggested.length) $("improvement-files").value = suggested.join(", ");
     }
