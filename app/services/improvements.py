@@ -7,6 +7,7 @@ import hmac
 import json
 import os
 import re
+import sqlite3
 import time
 import uuid
 from urllib.parse import quote
@@ -45,6 +46,7 @@ class ImprovementService:
         self.read_token = os.getenv("DIS_GITHUB_TOKEN", "").strip()
         self.write_token = os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip()
         self.signing_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip().encode()
+        self.database_path = os.getenv("DIS_DATABASE_PATH", "./design_intelligence.db")
 
     def _request(self, method: str, url: str, *, write: bool = False, **kwargs):
         token = self.write_token if write else (self.read_token or self.write_token)
@@ -111,6 +113,23 @@ class ImprovementService:
         signature = hmac.new(self.signing_key, encoded.encode(), hashlib.sha256).hexdigest()
         return {"summary": payload["summary"], "repository": payload["repository"], "ref": ref, "files": [{"path": item["path"], "reason": item["reason"]} for item in changes], "diff": "".join(diff_parts)[:100_000], "proposal_token": encoded + "." + signature, "expires_in_seconds": 1800, "approval_required": True, "limitations": ["Proposal is based on supplied findings and bounded source files only.", "No code changes until the separate approval/apply endpoint is called."]}
 
+    def _consume_proposal(self, encoded: str) -> None:
+        digest = hashlib.sha256(encoded.encode()).hexdigest()
+        try:
+            with sqlite3.connect(self.database_path, timeout=10) as db:
+                db.execute(
+                    "CREATE TABLE IF NOT EXISTS consumed_improvement_proposals ("
+                    "token_hash TEXT PRIMARY KEY, consumed_at INTEGER NOT NULL)"
+                )
+                db.execute(
+                    "INSERT INTO consumed_improvement_proposals(token_hash, consumed_at) VALUES (?, ?)",
+                    (digest, int(time.time())),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise ImprovementError("This approval token has already been used.") from exc
+        except sqlite3.Error as exc:
+            raise ImprovementError("Could not safely record one-time proposal approval.") from exc
+
     def apply(self, token: str, approval: bool) -> dict:
         if not approval:
             raise ImprovementError("Explicit approval is required before creating a pull request.")
@@ -128,6 +147,7 @@ class ImprovementService:
             raise ImprovementError("Proposal approval token is invalid.") from exc
         if int(time.time()) - int(payload.get("created_at", 0)) > 1800:
             raise ImprovementError("Proposal expired. Generate a fresh proposal before applying it.")
+        self._consume_proposal(encoded)
         owner, name = _repository_parts(payload["repository"])
         base = f"{API_ROOT}/repos/{owner}/{name}"
         latest = self._request("GET", f"{base}/git/ref/heads/{quote(payload['ref'], safe='')}")
