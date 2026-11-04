@@ -151,7 +151,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/design/runs \
 ```bash
 pip install -e '.[dev]'
 pytest -q
-ruff check .
+ruff check . --select E4,E7,E9,F
 ```
 
 ## Autonomy and safety
