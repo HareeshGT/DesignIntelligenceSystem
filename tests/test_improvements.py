@@ -53,6 +53,12 @@ def test_scope_normalization_accepts_common_relative_directory_forms():
     assert not _safe_scope_path("./../secrets")
 
 
+def test_static_site_files_are_recognized_as_ui_sources():
+    assert _ui_source_score("index.html", "<!doctype html><html><body>site</body></html>") >= 8
+    assert _ui_source_score("assets/css/site.css", ":root { --bg: #090a12; } body { margin: 0; }") >= 5
+    assert _ui_source_score("assets/js/main.js", "(() => { const nav = document.querySelector('.nav'); })();") >= 4
+
+
 def test_root_scope_matches_nested_repository_files():
     from app.services.improvements import _scope_matches
 
