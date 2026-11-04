@@ -2,6 +2,7 @@ import pytest
 
 from app.core.improvement_models import ImprovementProposalRequest
 from app.services.improvements import ImprovementError, ImprovementService, _repository_parts, _safe_source_path
+from app.services.llm import ProviderError
 
 def test_only_existing_frontend_source_paths_are_allowed():
     assert _safe_source_path("src/pages/Dashboard.tsx")
@@ -174,3 +175,46 @@ def test_proposal_signing_secret_cannot_equal_client_api_key(monkeypatch):
     monkeypatch.setenv("DIS_PROPOSAL_SIGNING_KEY", shared_secret)
     with pytest.raises(ImprovementError, match="must be different"):
         ImprovementService()
+
+
+def test_model_provider_failures_are_mapped_to_improvement_errors(monkeypatch):
+    import base64
+
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "client-api-key")
+    monkeypatch.setenv("DIS_PROPOSAL_SIGNING_KEY", "proposal-signing-secret-with-32-plus-bytes")
+    monkeypatch.delenv("DIS_GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("DIS_GITHUB_WRITE_TOKEN", raising=False)
+
+    class BrokenProvider:
+        enabled = True
+
+        def complete_json(self, **kwargs):
+            raise ProviderError("provider unavailable")
+
+    service = ImprovementService(llm=BrokenProvider())
+
+    def fake_request(method, url, **kwargs):
+        if url.endswith("/repos/owner/repo"):
+            return {"default_branch": "main"}
+        if "/git/ref/heads/" in url:
+            return {"object": {"sha": "base-commit"}}
+        return {
+            "type": "file",
+            "encoding": "base64",
+            "sha": "blob-sha",
+            "content": base64.b64encode(b"export const App = () => null;").decode(),
+        }
+
+    service._request = fake_request
+    request = ImprovementProposalRequest(
+        repository="owner/repo",
+        target_files=["src/App.tsx"],
+        findings=[{
+            "category": "visual", "severity": "medium", "title": "Improve spacing",
+            "description": "Cards appear crowded.", "evidence": "Visible card gap is zero.",
+            "recommendation": "Increase the card gap.",
+        }],
+        source_sharing_consent=True,
+    )
+    with pytest.raises(ImprovementError, match="model provider"):
+        service.propose(request)
