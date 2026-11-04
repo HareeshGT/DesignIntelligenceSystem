@@ -56,3 +56,36 @@ def test_dashboard_assets_are_served():
     response = client.get("/static/app.js")
     assert response.status_code == 200
     assert "api/v1/repositories/inspect" in response.text
+
+
+def test_visual_inspection_requires_shared_key_when_configured(monkeypatch):
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "visual-secret")
+    monkeypatch.delenv("DIS_GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("DIS_LLM_API_KEY", raising=False)
+    response = client.post(
+        "/api/v1/visual/inspect",
+        json={"url": "https://example.com"},
+    )
+    assert response.status_code == 401
+
+
+def test_visual_inspection_rejects_missing_shared_key_configuration(monkeypatch):
+    monkeypatch.delenv("DIS_REPOSITORY_INSPECTION_API_KEY", raising=False)
+    monkeypatch.setenv("DIS_LLM_API_KEY", "configured-provider-key")
+    monkeypatch.delenv("DIS_GITHUB_TOKEN", raising=False)
+    response = client.post(
+        "/api/v1/visual/inspect",
+        json={"url": "https://example.com"},
+    )
+    assert response.status_code == 503
+
+
+def test_visual_inspection_rejects_localhost_before_browser_launch(monkeypatch):
+    monkeypatch.delenv("DIS_REPOSITORY_INSPECTION_API_KEY", raising=False)
+    monkeypatch.delenv("DIS_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("DIS_GITHUB_TOKEN", raising=False)
+    response = client.post(
+        "/api/v1/visual/inspect",
+        json={"url": "http://localhost:8000"},
+    )
+    assert response.status_code == 400

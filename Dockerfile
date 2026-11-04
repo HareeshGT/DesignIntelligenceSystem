@@ -3,6 +3,7 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     DIS_DATABASE_PATH=/data/design_intelligence.db
 
 WORKDIR /app
@@ -12,9 +13,9 @@ RUN addgroup --system dis && adduser --system --ingroup dis --home /app dis
 COPY pyproject.toml README.md ./
 COPY app ./app
 
-RUN python -m pip install --upgrade pip && pip install .
+RUN python -m pip install --upgrade pip && pip install . && playwright install --with-deps chromium
 
-RUN mkdir -p /data && chown -R dis:dis /app /data
+RUN mkdir -p /data && chown -R dis:dis /app /data /ms-playwright
 USER dis
 
 EXPOSE 8000

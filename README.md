@@ -12,7 +12,7 @@ A standalone, provider-backed design intelligence foundation for improving web, 
 - Project-scoped SQLite memory, permission policy, quality rubric, and FastAPI API.
 - Provider status endpoint exposes configuration metadata only; API keys are never returned.
 
-> **Important capability boundary:** DIS can inspect GitHub repository metadata and a bounded sample of files in read-only mode. It does not yet edit source code, launch browsers, capture screenshots, or perform visual regression testing. QA findings are model analysis, not proof of executed visual verification.
+> **Important capability boundary:** DIS can inspect GitHub repository metadata and can now launch an isolated Playwright browser against a supplied public web URL, capture desktop/tablet/mobile screenshots, and audit observable DOM/layout/accessibility signals. This first visual milestone does not yet use a vision model to interpret screenshot aesthetics, crawl linked routes, authenticate, edit source code, or perform visual regression testing.
 
 ## Architecture
 
@@ -87,6 +87,17 @@ curl -X POST http://127.0.0.1:8000/api/v1/repositories/inspect \
 
 The response contains detected stacks/frameworks, entry points, route/page paths, component/style paths, design-system evidence, declared test commands, sampled-file evidence, an architecture summary, and limitations. It does not return source file contents.
 
+## Browser-based visual inspection
+
+The visual inspector accepts a public application URL and opens it in a headless Chromium browser at desktop (1440×1000), tablet (768×1024), and mobile (390×844) viewports. It returns viewport screenshots, page metadata, responsive overflow checks, and basic accessibility signals for image alternatives, accessible button/link names, form labels, and heading hierarchy.
+
+- API: `POST /api/v1/visual/inspect` with JSON `{"url":"https://example.com","capture_screenshots":true}`.
+- Include `X-DIS-API-Key` when `DIS_REPOSITORY_INSPECTION_API_KEY` is configured.
+- The target must be publicly reachable over HTTP(S). Localhost, private, loopback, link-local, and reserved IP targets are blocked, including redirects and browser subrequests.
+- Browser inspection is read-only: it does not log in, submit forms, click controls, or modify the target.
+- Screenshots are returned as base64 JPEGs in the response and are not persisted by the server.
+- This initial audit uses deterministic DOM/layout evidence. It is not yet multimodal screenshot interpretation, a WCAG certification, authenticated route crawling, or visual regression testing.
+
 ## Browser dashboard
 
 DIS includes a browser-based workspace served by the FastAPI application:
@@ -94,6 +105,7 @@ DIS includes a browser-based workspace served by the FastAPI application:
 - Open `http://127.0.0.1:8000/` for the dashboard.
 - **Overview** shows API health, provider mode, and recent inspections.
 - **Repository inspector** accepts a GitHub URL or `owner/name`, with an optional branch/tag/commit ref.
+- **Visual inspection** opens a public web URL in Chromium, captures desktop/tablet/mobile screenshots, and displays responsive and accessibility findings.
 - **Architecture report** displays detected stacks/frameworks, entry points, routes, components/styles, design-system signals, declared commands, sampled file evidence, and limitations.
 - **Inspection history** is stored in the current browser's local storage. It can be cleared from the History page.
 - If the server requires `DIS_REPOSITORY_INSPECTION_API_KEY`, enter that shared key in dashboard settings. It is stored in session storage for the current browser tab only. Do not enter a GitHub personal access token in the browser; configure `DIS_GITHUB_TOKEN` on the server.
@@ -136,6 +148,7 @@ The container runs as a non-root user, includes a health check, and stores SQLit
 - `GET /api/v1/agents` — registered roles
 - `GET /api/v1/provider` — safe provider configuration status (never returns the key)
 - `POST /api/v1/design/runs` — dynamically select specialists and orchestrate a design brief
+- `POST /api/v1/visual/inspect` — capture and audit a public web page at three viewport sizes
 - `POST /api/v1/permissions/evaluate` — evaluate an action against autonomy policy
 
 Example:
