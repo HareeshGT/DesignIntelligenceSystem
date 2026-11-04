@@ -228,3 +228,24 @@ def test_model_provider_failures_are_mapped_to_improvement_errors(monkeypatch):
     )
     with pytest.raises(ImprovementError, match="model provider"):
         service.propose(request)
+
+
+def test_proposal_accepts_empty_visual_findings_when_summary_is_available():
+    request = ImprovementProposalRequest(
+        repository="owner/repo",
+        target_files=["src/App.tsx"],
+        visual_summary="The page is visually consistent and no deterministic issues were detected.",
+        source_sharing_consent=True,
+    )
+    assert request.findings == []
+
+
+def test_proposal_requires_some_design_context_when_findings_are_empty():
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="Provide at least one visual finding"):
+        ImprovementProposalRequest(
+            repository="owner/repo",
+            target_files=["src/App.tsx"],
+            source_sharing_consent=True,
+        )
