@@ -66,7 +66,12 @@ class ImprovementService:
         self.llm = llm or LLMProvider(timeout=60)
         self.read_token = os.getenv("DIS_GITHUB_TOKEN", "").strip()
         self.write_token = os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip()
-        self.signing_key = os.getenv("DIS_PROPOSAL_SIGNING_KEY", "").strip().encode()
+        client_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip().encode("utf-8")
+        self.signing_key = os.getenv("DIS_PROPOSAL_SIGNING_KEY", "").strip().encode("utf-8")
+        if self.signing_key and client_key and hmac.compare_digest(self.signing_key, client_key):
+            raise ImprovementError("DIS_PROPOSAL_SIGNING_KEY must be different from DIS_REPOSITORY_INSPECTION_API_KEY.")
+        if self.signing_key and len(self.signing_key) < 32:
+            raise ImprovementError("DIS_PROPOSAL_SIGNING_KEY must contain at least 32 bytes of random secret material.")
         self.database_path = os.getenv("DIS_DATABASE_PATH", "./design_intelligence.db")
 
     def _request(self, method: str, url: str, *, write: bool = False, **kwargs):
