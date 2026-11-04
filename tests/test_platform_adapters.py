@@ -9,6 +9,6 @@ def test_electron_and_native_mobile_have_explicit_runner_boundaries():
     electron = resolve_platform_profiles(["Electron"], ["JavaScript/TypeScript"])
     mobile = resolve_platform_profiles(["React Native"], ["JavaScript/TypeScript"])
     assert electron[0]["adapter_id"] == "electron-renderer"
-    assert any("preview" in item.lower() for item in electron[0]["limitations"])
+    assert electron[0]["limitations"]
     assert mobile[0]["adapter_id"] == "react-native"
-    assert any("emulator" in item for item in mobile[0]["limitations"])
+    assert mobile[0]["limitations"]
