@@ -77,19 +77,19 @@ def _ui_source_score(path: str, content: str) -> int:
     score = 0
     if suffix in {".html", ".htm", ".jinja", ".jinja2", ".j2", ".tmpl", ".tpl", ".css", ".scss", ".sass", ".less", ".tsx", ".jsx", ".vue", ".svelte", ".dart", ".swift", ".kt", ".kts", ".qml", ".ui", ".mdx"}:
         score += 3
-    if re.search(r"<(?:!doctype|html|body|main|nav|header|footer|form|button|input|div|section|template)\\b", text):
+    if re.search(r"<(?:!doctype|html|body|main|nav|header|footer|form|button|input|div|section|template)\b", text):
         score += 5
-    if re.search(r"\\b(react|jsx|tsx|vue|svelte|component|useeffect|usestate|stylesheet|tailwind|cssmodule)\\b", text):
+    if re.search(r"\b(react|jsx|tsx|vue|svelte|component|useeffect|usestate|stylesheet|tailwind|cssmodule)\b", text):
         score += 3
-    if re.search(r"\\b(st\\.(?:title|header|write|markdown|button|selectbox|text_input|columns|container)|gr\\.(?:blocks|interface|row|column|textbox|button)|dash\\.(?:html|dcc)|tkinter|pyqt|pyside|kivy)\\b", text):
+    if re.search(r"\b(st\.(?:title|header|write|markdown|button|selectbox|text_input|columns|container)|gr\.(?:blocks|interface|row|column|textbox|button)|dash\.(?:html|dcc)|tkinter|pyqt|pyside|kivy)\b", text):
         score += 8
-    if re.search(r"\\b(render_template|render_template_string|templateresponse|htmlresponse|jinja2?\\.environment|mark_safe)\\b", text):
+    if re.search(r"\b(render_template|render_template_string|templateresponse|htmlresponse|jinja2?\.environment|mark_safe)\b", text):
         score += 8
-    if re.search(r"\\b(components?\\s*=|html\\s*=|template\\s*=|page\\s*=|render_[a-z_]+|build_[a-z_]*(?:page|view|screen|dashboard))", text):
+    if re.search(r"\b(components?\s*=|html\s*=|template\s*=|page\s*=|render_[a-z_]+|build_[a-z_]*(?:page|view|screen|dashboard))", text):
         score += 3
-    has_route = bool(re.search(r"@(?:app|router|bp|blueprint)\\.(?:get|post|put|patch|route)\\s*\\(", text))
+    has_route = bool(re.search(r"@(?:app|router|bp|blueprint)\.(?:get|post|put|patch|route)\s*\(", text))
     ui_route = bool(re.search(r"""['"]/(?:ui|dashboard|frontend|pages?|screens?|settings|projects|design|improvements)(?:/|['"])""", text))
-    if has_route and (ui_route or re.search(r"render_template|htmlresponse|templateresponse|response_class\\s*=\\s*html", text)):
+    if has_route and (ui_route or re.search(r"render_template|htmlresponse|templateresponse|response_class\s*=\s*html", text)):
         score += 8
     if has_route and re.search(r"(?:dashboard|frontend|page|screen|view|ui)_?(?:data|state|config|summary)|(?:data|state|config|summary)_for_(?:dashboard|frontend|page|screen|ui)", text):
         score += 4
