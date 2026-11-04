@@ -125,7 +125,12 @@ class ImprovementService:
                 max_tokens=8192,
             )
         except ProviderError as exc:
-            raise ImprovementError("The configured model provider could not generate a valid UI proposal.") from exc
+            provider = getattr(self.llm, "provider", "configured")
+            model = getattr(self.llm, "model", "")
+            model_label = f"/{model}" if model else ""
+            raise ImprovementError(
+                f"The {provider}{model_label} provider could not generate the UI proposal: {exc}"
+            ) from exc
         proposed = result.get("files", [])
         if not isinstance(proposed, list) or len(proposed) > 4:
             raise ImprovementError("The model returned an invalid or oversized file proposal.")
