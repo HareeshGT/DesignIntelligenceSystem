@@ -6,6 +6,20 @@ def test_web_framework_resolves_browser_adapter():
     assert profiles[0]["adapter_id"] == "web-browser"
     assert "public_url_visual_audit" in profiles[0]["capabilities"]
 
+def test_qt_desktop_has_source_analysis_and_explicit_runtime_boundary():
+    profiles = resolve_platform_profiles(["Qt desktop"], ["Python"])
+    assert profiles[0]["adapter_id"] == "qt-desktop"
+    assert "python_ui_source_analysis" in profiles[0]["capabilities"]
+    assert any("desktop runner" in item for item in profiles[0]["limitations"])
+
+
+def test_fastapi_embedded_web_surface_gets_browser_profile():
+    profiles = resolve_platform_profiles(["FastAPI", "Qt desktop"], ["Python"])
+    ids = {profile["adapter_id"] for profile in profiles}
+    assert "qt-desktop" in ids
+    assert "web-browser" in ids
+
+
 def test_electron_and_native_mobile_have_explicit_runner_boundaries():
     electron = resolve_platform_profiles(["Electron"], ["JavaScript/TypeScript"])
     mobile = resolve_platform_profiles(["React Native"], ["JavaScript/TypeScript"])
