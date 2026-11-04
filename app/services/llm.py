@@ -37,7 +37,13 @@ class LLMProvider:
         self.provider = (provider or os.getenv("DIS_LLM_PROVIDER", "openai")).lower()
         self.api_key = api_key if api_key is not None else os.getenv("DIS_LLM_API_KEY", "")
         self.model = model if model is not None else os.getenv("DIS_LLM_MODEL", "")
-        self.base_url = (base_url if base_url is not None else os.getenv("DIS_LLM_BASE_URL", "")).rstrip("/")
+        configured_base_url = base_url if base_url is not None else os.getenv("DIS_LLM_BASE_URL", "")
+        if not configured_base_url:
+            configured_base_url = {
+                "mistral": "https://api.mistral.ai/v1",
+                "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+            }.get(self.provider, "")
+        self.base_url = configured_base_url.rstrip("/")
         self.timeout = timeout
 
     @property

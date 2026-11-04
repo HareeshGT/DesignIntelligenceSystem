@@ -255,12 +255,53 @@ async function loadSystemStatus() {
     $("stat-model").textContent = "Could not read provider status";
   }
 }
+
+const PROVIDER_PROFILES_KEY = "dis.user.provider_profiles";
+const PROVIDER_DEFAULTS = {
+  openai: {baseUrl:"https://api.openai.com/v1", model:""},
+  anthropic: {baseUrl:"https://api.anthropic.com/v1", model:""},
+  mistral: {baseUrl:"https://api.mistral.ai/v1", model:"mistral-large-latest"},
+  gemini: {baseUrl:"https://generativelanguage.googleapis.com/v1beta/openai", model:"gemini-2.5-flash"},
+  "openai-compatible": {baseUrl:"", model:""}
+};
+function readProviderProfiles() {
+  try { return JSON.parse(sessionStorage.getItem(PROVIDER_PROFILES_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveActiveProviderProfile() {
+  const provider = $("llm-provider").value;
+  const profiles = readProviderProfiles();
+  profiles[provider] = {model:$("llm-model").value.trim(), apiKey:$("llm-api-key").value.trim(), baseUrl:$("llm-base-url").value.trim()};
+  sessionStorage.setItem(PROVIDER_PROFILES_KEY, JSON.stringify(profiles));
+}
+function loadProviderProfile(provider) {
+  const profile = readProviderProfiles()[provider] || {};
+  const defaults = PROVIDER_DEFAULTS[provider] || {};
+  $("llm-model").value = profile.model || defaults.model || "";
+  $("llm-api-key").value = profile.apiKey || "";
+  $("llm-base-url").value = profile.baseUrl || defaults.baseUrl || "";
+  const help = $("llm-provider-help");
+  if (help) help.textContent = provider === "mistral"
+    ? "Mistral has its own model ID, API key and endpoint profile. The selected model powers the DIS specialist team."
+    : provider === "gemini"
+      ? "Gemini has its own model ID, API key and endpoint profile. The selected model powers the DIS specialist team."
+      : "Each provider keeps its own model, API key and endpoint in this browser session. The selected provider powers the DIS specialist team.";
+}
+$("llm-provider").addEventListener("change", () => {
+  saveActiveProviderProfile();
+  loadProviderProfile($("llm-provider").value);
+});
+
 function openSettings() {
   $("api-key-input").value = sessionStorage.getItem(KEY_STORAGE) || "";
   $("llm-provider").value = sessionStorage.getItem(CREDENTIAL_FIELDS.provider) || "openai";
-  $("llm-model").value = sessionStorage.getItem(CREDENTIAL_FIELDS.model) || "";
-  $("llm-base-url").value = sessionStorage.getItem(CREDENTIAL_FIELDS.baseUrl) || "";
-  $("llm-api-key").value = sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey) || "";
+  const selectedProvider = $("llm-provider").value;
+  const profiles = readProviderProfiles();
+  if (!profiles[selectedProvider] && (sessionStorage.getItem(CREDENTIAL_FIELDS.model) || sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey))) {
+    profiles[selectedProvider] = {model:sessionStorage.getItem(CREDENTIAL_FIELDS.model)||"",apiKey:sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey)||"",baseUrl:sessionStorage.getItem(CREDENTIAL_FIELDS.baseUrl)||""};
+    sessionStorage.setItem(PROVIDER_PROFILES_KEY, JSON.stringify(profiles));
+  }
+  loadProviderProfile(selectedProvider);
   $("github-read-token").value = sessionStorage.getItem(CREDENTIAL_FIELDS.githubRead) || "";
   $("github-write-token").value = sessionStorage.getItem(CREDENTIAL_FIELDS.githubWrite) || "";
   $("settings-dialog").showModal();
@@ -270,12 +311,13 @@ $("settings-open-secondary").addEventListener("click", openSettings);
 $("save-key").addEventListener("click", () => {
   const key = $("api-key-input").value.trim();
   if (key) sessionStorage.setItem(KEY_STORAGE, key); else sessionStorage.removeItem(KEY_STORAGE);
+  saveActiveProviderProfile();
   const values = {provider:$("llm-provider").value,model:$("llm-model").value.trim(),baseUrl:$("llm-base-url").value.trim(),llmKey:$("llm-api-key").value.trim(),githubRead:$("github-read-token").value.trim(),githubWrite:$("github-write-token").value.trim()};
   Object.entries(values).forEach(([name,value]) => {const storage=CREDENTIAL_FIELDS[name];if(value)sessionStorage.setItem(storage,value);else sessionStorage.removeItem(storage);});
   $("settings-dialog").close();loadSystemStatus();
 });
 $("clear-key").addEventListener("click", () => {
-  sessionStorage.removeItem(KEY_STORAGE);Object.values(CREDENTIAL_FIELDS).forEach(key=>sessionStorage.removeItem(key));
+  sessionStorage.removeItem(KEY_STORAGE);sessionStorage.removeItem(PROVIDER_PROFILES_KEY);Object.values(CREDENTIAL_FIELDS).forEach(key=>sessionStorage.removeItem(key));
   ["api-key-input","llm-api-key","github-read-token","github-write-token"].forEach(id=>$(id).value="");
   ["llm-model","llm-base-url"].forEach(id=>$(id).value="");
 });
@@ -436,7 +478,15 @@ $("visual-form").addEventListener("submit", inspectVisual);
 const initial = location.hash.replace("#", "");
 navigate(["overview","inspector","visual","history"].includes(initial) ? initial : "overview");
 renderHistory();
+function updateLiveClock() {
+  const clock = $("live-clock");
+  if (clock) clock.textContent = new Intl.DateTimeFormat(undefined, {hour:"2-digit", minute:"2-digit", second:"2-digit"}).format(new Date());
+}
+updateLiveClock();
 loadSystemStatus();
+setInterval(updateLiveClock, 1000);
+setInterval(() => { if (!document.hidden) loadSystemStatus(); }, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) loadSystemStatus(); });
 
 async function compareVersions(event) {
   event.preventDefault();

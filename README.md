@@ -51,9 +51,11 @@ DIS_LLM_MODEL=gpt-4o-mini
 Supported provider values:
 - `openai` — OpenAI API (default base URL: `https://api.openai.com/v1`)
 - `anthropic` — Anthropic Messages API
-- `groq`, `gemini`, `mistral`, `openrouter`, `openai-compatible` — OpenAI-compatible chat completions API
+- `mistral` — Mistral chat completions API (default base URL: `https://api.mistral.ai/v1`)
+- `gemini` — Google Gemini through its OpenAI-compatible endpoint (default base URL: `https://generativelanguage.googleapis.com/v1beta/openai`)
+- `groq`, `openrouter`, `openai-compatible` — other OpenAI-compatible chat completions APIs
 
-For compatible providers, set `DIS_LLM_BASE_URL` to the provider's OpenAI-compatible API base URL. Example for Groq:
+Mistral and Gemini have built-in endpoint defaults. In browser Settings, each provider has its own session-scoped model ID, API key and optional endpoint profile; switching providers preserves the other profiles. The selected provider powers the existing DIS Design Director and specialist-agent team. For other compatible providers, set `DIS_LLM_BASE_URL` to the provider's OpenAI-compatible API base URL. Example for Groq:
 
 ```dotenv
 DIS_LLM_PROVIDER=groq
@@ -126,6 +128,23 @@ DIS includes a browser-based workspace served by the FastAPI application:
 
 The dashboard and API are served from the same origin; no separate frontend build or Node.js installation is required.
 
+
+## Deploy on Render with Docker
+
+Create a **Web Service** from this repository and select **Docker** as the runtime (Render can build directly from the included `Dockerfile`). Use these settings:
+
+- Dockerfile path: `./Dockerfile`
+- Docker build context: `.`
+- Health check path: `/health`
+- Do not set a fixed port in the Render dashboard. The container reads Render's injected `PORT` value and binds Uvicorn to `0.0.0.0:$PORT` (falling back to `8000` for local Docker).
+- Add a persistent disk mounted at `/data` if you need SQLite project memory to survive deploys/restarts. Set `DIS_DATABASE_PATH=/data/design_intelligence.db`. Render persistent disks require a paid service plan and are not shared between multiple instances.
+- Set `DIS_REPOSITORY_INSPECTION_API_KEY` and `DIS_PROPOSAL_SIGNING_KEY` as Render environment variables. Use independent, high-entropy secrets; never commit them to the repository. The dashboard prompts for the matching API key in Settings.
+- Add provider and GitHub credentials only where needed. Prefer entering user-owned model/GitHub credentials in the browser Settings rather than baking secrets into the image.
+
+The Docker image installs Chromium and its OS dependencies at build time for the visual-inspection endpoint. The image is therefore larger and its first build takes longer than a basic FastAPI image. Render's health check calls `/health`; a healthy container does not imply that an external model API key has been configured.
+
+For local Compose, `PORT=8000` is set explicitly and the host port remains configurable with `DIS_PORT`. The Dockerfile's runtime port handling is shared by local Docker and Render.
+
 ## Docker
 
 Copy the example environment file, configure optional provider/GitHub credentials, and start DIS:
@@ -154,6 +173,19 @@ docker run --rm -p 8000:8000 --env-file .env -v dis-data:/data design-intelligen
 ```
 
 The container runs as a non-root user, includes a health check, and stores SQLite under `/data`. Keep `.env` private and never bake secrets into the Docker image.
+
+## Render deployment
+
+This repository includes a Render Blueprint in `render.yaml` and deploys the same Docker image used by local Compose.
+
+1. Push the repository to GitHub.
+2. In Render, choose **New → Blueprint**, connect this repository, and deploy the detected `render.yaml`.
+3. Render supplies the `PORT` environment variable. The Docker entrypoint and container health check both honor it; local Compose explicitly sets `PORT=8000`.
+4. After deployment, open the service's **Environment** settings and copy the generated `DIS_REPOSITORY_INSPECTION_API_KEY` value into the dashboard's **Shared DIS API key** setting. Keep `DIS_PROPOSAL_SIGNING_KEY` server-side; never put it in browser settings.
+
+The Blueprint uses Render's free web-service plan and does not attach a persistent disk. Its filesystem (including the SQLite database under `/data`) is ephemeral, so project memory and stored data can be lost when the service restarts or redeploys. For persistent SQLite data, move the service to a paid Render instance and attach a persistent disk mounted at `/data`; keep `DIS_DATABASE_PATH=/data/design_intelligence.db`.
+
+The image installs Chromium for browser-based visual inspection. The service can start on the free plan, but Chromium inspections are memory-intensive; use an instance with sufficient memory for production visual-inspection workloads. Render deployment and browser inspection should be verified after the first deploy using `GET /health` and a real visual-inspection request.
 
 ## API
 

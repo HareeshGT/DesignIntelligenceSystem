@@ -13,6 +13,7 @@ services:
     env_file:
       - .env
     environment:
+      PORT: "8000"
       DIS_DATABASE_PATH: /data/design_intelligence.db
     volumes:
       - dis-data:/data
