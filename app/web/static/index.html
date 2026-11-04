@@ -80,7 +80,7 @@
               <label for="studio-brief" class="studio-label">02 · DESIGN BRIEF</label>
               <textarea id="studio-brief" rows="6" required minlength="5" maxlength="10000" placeholder="Example: Redesign the dashboard to feel more premium. Simplify the navigation, improve visual hierarchy, create a consistent card system, and make every screen responsive. Preserve the existing product functionality."></textarea>
               <div class="check-row"><input type="checkbox" id="studio-source-consent"><label for="studio-source-consent">I consent to sending the selected source files and this brief to my configured AI model provider to generate a code proposal.</label></div>
-              <div class="security-note"><span>◇</span><p><b>You stay in control of repository writes.</b><br>DIS reads source files for the proposal. It will show you the complete diff and will not create a branch or push code until you approve.</p></div>
+              <div class="security-note"><span>◇</span><p><b>You stay in control of repository writes.</b><br>DIS reads source files only after consent. It shows the complete diff and will not create a branch or push code until you approve. Server setup requires an LLM, GitHub read/write tokens, and a separate proposal signing key.</p></div>
               <button class="primary-button submit-button" id="studio-submit" type="submit"><span class="button-label">Start AI design session</span><span class="button-arrow">→</span></button>
               <p class="form-error" id="studio-error" role="alert"></p>
             </form>
@@ -180,6 +180,6 @@
     <form method="dialog" class="dialog-head"><div><span class="eyebrow">CONNECTION SETTINGS</span><h2>API access</h2></div><button class="icon-button" aria-label="Close">×</button></form>
     <div class="dialog-body"><p>Enter the shared inspection key configured on your DIS server. It is kept in this browser tab's session storage and sent only to your DIS API.</p><label for="api-key-input">DIS inspection API key</label><input id="api-key-input" type="password" placeholder="Enter X-DIS-API-Key value" autocomplete="off"><div class="dialog-actions"><button class="text-button" id="clear-key" type="button">Clear key</button><button class="primary-button" id="save-key" type="button">Save for this session</button></div><small class="privacy-caption">Do not enter your GitHub personal access token here. Configure DIS_GITHUB_TOKEN on the server instead.</small></div>
   </dialog>
-  <script src="/static/app.js" defer></script>\n  <script src="/static/studio.js" defer></script>
+  <script>window.__disInitialHash = location.hash;</script>\n  <script src="/static/app.js" defer></script>\n  <script src="/static/studio.js" defer></script>
 </body>
 </html>
