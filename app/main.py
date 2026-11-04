@@ -1,15 +1,15 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-# Load local development configuration before constructing provider clients.
-load_dotenv()
-
 from app.api.repositories import router as repositories_router
 from app.core.models import ApprovalRequest, DesignRequest
 from app.core.permissions import PermissionPolicy
 from app.services.llm import LLMProvider
 from app.services.memory import ProjectMemory
 from app.services.orchestrator import Orchestrator
+
+# Load local development configuration before constructing provider clients.
+load_dotenv()
 
 app = FastAPI(
     title="Design Intelligence System",
