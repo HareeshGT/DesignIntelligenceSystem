@@ -71,8 +71,6 @@ def test_likely_embedded_credentials_are_redacted():
 
 def test_inspector_builds_read_only_inventory_from_github_api(monkeypatch):
     import json
-    from urllib.parse import urlparse
-
     class FakeResponse:
         def __init__(self, payload, status_code=200):
             self._payload = payload
@@ -115,4 +113,4 @@ def test_inspector_builds_read_only_inventory_from_github_api(monkeypatch):
     assert "src/main.tsx" in result.app_entry_points
     assert "npm run test (declared; not executed)" in result.test_and_lint_commands
     assert all(".env" not in item.path for item in result.file_evidence)
-    assert "not executed" in " ".join(result.limitations)
+    assert any("was executed" in item for item in result.limitations)
