@@ -69,6 +69,13 @@ def test_signed_approval_token_can_only_be_applied_once(monkeypatch, tmp_path):
             return {"html_url": "https://github.com/owner/repo/pull/42", "number": 42}
         return {}
 
+    def temporary_failure(method, url, **kwargs):
+        raise ImprovementError("temporary GitHub failure")
+
+    monkeypatch.setattr(service, "_request", temporary_failure)
+    with pytest.raises(ImprovementError, match="temporary GitHub failure"):
+        service.apply(token, True)
+
     monkeypatch.setattr(service, "_request", fake_request)
     result = service.apply(token, True)
     assert result["number"] == 42
