@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10111a">
+  <meta name="description" content="Design Intelligence System — understand and improve software interfaces.">
+  <title>DIS — Design Intelligence System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="DIS home">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span><b>DIS</b><small>DESIGN INTELLIGENCE</small></span>
+      </a>
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="nav">
+        <a class="nav-item active" href="#overview" data-view="overview"><span class="nav-icon">◫</span> Overview</a>
+        <a class="nav-item" href="#inspector" data-view="inspector"><span class="nav-icon">⌕</span> Repository inspector</a>
+        <a class="nav-item" href="#history" data-view="history"><span class="nav-icon">↺</span> Inspection history</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-note"><span class="pulse-dot"></span><span>Read-only inspection<br><small>Repository code is never executed</small></span></div>
+        <a class="docs-link" href="/docs" target="_blank" rel="noreferrer">API documentation <span>↗</span></a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark"><span></span><span></span><span></span></span><b>DIS</b></div>
+        <div class="breadcrumb">Workspace <span>/</span> <b id="breadcrumb-current">Overview</b></div>
+        <div class="topbar-right">
+          <span class="system-status"><i id="health-dot"></i><span id="health-label">Checking service</span></span>
+          <button class="icon-button" id="settings-open" aria-label="Open settings" title="Settings">⚙</button>
+        </div>
+      </header>
+
+      <section class="view active" id="view-overview">
+        <div class="page-heading">
+          <div><div class="eyebrow">DESIGN INTELLIGENCE SYSTEM <span class="eyebrow-line"></span></div>
+            <h1>Understand your product.<br><em>Improve its experience.</em></h1>
+            <p class="lede">A universal intelligence layer for exploring application architecture, UI structure and design-system foundations.</p>
+          </div>
+          <div class="heading-orbit" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit-core">D<span>I</span>S</div><i></i><b></b></div>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-top"><span>API SERVICE</span><span class="stat-icon">⌁</span></div><strong id="stat-health">—</strong><small id="stat-health-note">Connecting to DIS</small></article>
+          <article class="stat-card"><div class="stat-top"><span>AI REASONING</span><span class="stat-icon">✳</span></div><strong id="stat-provider">—</strong><small id="stat-model">Checking provider configuration</small></article>
+          <article class="stat-card"><div class="stat-top"><span>REPOSITORIES REVIEWED</span><span class="stat-icon">⌘</span></div><strong id="stat-inspections">0</strong><small>Saved in this browser</small></article>
+        </div>
+
+        <div class="section-title"><div><span class="eyebrow">START HERE</span><h2>Explore a codebase</h2></div><span class="section-caption">PHASE 1 · REPOSITORY INTELLIGENCE</span></div>
+        <div class="launch-card">
+          <div class="launch-copy"><div class="launch-icon">⌕</div><h3>Inspect a GitHub repository</h3><p>Map the technology stack, locate UI entry points, discover routes and components, and identify design-system evidence.</p><button class="primary-button" data-go="inspector">Open repository inspector <span>→</span></button></div>
+          <div class="launch-visual"><div class="code-window"><div class="window-bar"><i></i><i></i><i></i><span>repository.map</span></div><div class="code-lines"><span class="code-muted">01</span><span class="code-purple">project</span> <span class="code-white">:</span> <span class="code-green">"your-product"</span><br><span class="code-muted">02</span><span class="code-purple">framework</span> <span class="code-white">:</span> <span class="code-green">"detected"</span><br><span class="code-muted">03</span><span class="code-purple">routes</span> <span class="code-white">:</span> <span class="code-blue">discovered</span><br><span class="code-muted">04</span><span class="code-purple">design_system</span> <span class="code-white">:</span> <span class="code-blue">mapping...</span></div><div class="scan-line"></div></div><div class="visual-chip chip-a">✳ &nbsp; Stack detection</div><div class="visual-chip chip-b">⌘ &nbsp; UI discovery</div></div>
+        </div>
+
+        <div class="section-title recent-title"><div><span class="eyebrow">YOUR WORK</span><h2>Recent inspections</h2></div><button class="text-button" data-go="history">View history →</button></div>
+        <div id="overview-history" class="history-list compact"><div class="empty-state">Your repository inspections will appear here.</div></div>
+      </section>
+
+      <section class="view" id="view-inspector">
+        <div class="page-heading simple-heading"><div><div class="eyebrow">REPOSITORY INTELLIGENCE <span class="eyebrow-line"></span></div><h1>Repository <em>inspector.</em></h1><p class="lede">Give DIS a GitHub repository. It will map the project structure and return an evidence-based architecture report.</p></div></div>
+        <div class="inspector-layout">
+          <div class="panel inspect-panel">
+            <div class="panel-heading"><div><span class="eyebrow">NEW ANALYSIS</span><h2>Connect a repository</h2></div><span class="step-count">01 / 01</span></div>
+            <form id="inspect-form">
+              <label for="repository-input">GitHub repository URL or owner/name</label>
+              <div class="input-wrap"><span>↗</span><input id="repository-input" name="repository" placeholder="https://github.com/owner/repository" autocomplete="url" required></div>
+              <div class="field-row"><div class="field-grow"><label for="ref-input">Branch, tag or commit <span class="optional">OPTIONAL</span></label><input id="ref-input" name="ref" placeholder="Default branch"></div><div class="field-grow"><label>Inspection mode</label><div class="mode-select"><span class="mode-dot"></span> Read-only analysis <span class="lock">⌑</span></div></div></div>
+              <div class="check-row"><input type="checkbox" id="sample-files" checked><label for="sample-files">Include bounded file samples for deeper architecture analysis</label></div>
+              <div class="security-note"><span>◇</span><p><b>Your code stays under inspection, not execution.</b><br>DIS reads selected repository files and never runs project scripts, installs dependencies or changes repository contents.</p></div>
+              <button class="primary-button submit-button" id="inspect-submit" type="submit"><span class="button-label">Inspect repository</span><span class="button-arrow">→</span></button>
+              <p class="form-error" id="form-error" role="alert"></p>
+            </form>
+          </div>
+          <aside class="panel connection-panel"><span class="eyebrow">CONNECTION</span><h3>GitHub access</h3><div class="connection-row"><span class="github-mark">◉</span><div><b>GitHub API</b><small id="github-access">Public repositories</small></div><span class="connection-indicator"></span></div><div class="connection-divider"></div><p>Public repositories can be inspected without a token. For private repositories, configure a least-privilege GitHub token on the DIS server.</p><button class="text-button" id="settings-open-secondary">Configure access key →</button><div class="limit-box"><span>⌁</span><div><b>Bounded inspection</b><small>Up to 20,000 tree entries · 24 sampled files · 240 KB total sample data</small></div></div></aside>
+        </div>
+        <div class="loading-panel panel hidden" id="loading-panel"><div class="loader"></div><div><b>Mapping your repository</b><p id="loading-message">Reading repository metadata and structure…</p></div><span class="loading-label">ANALYZING</span></div>
+        <section id="report-section" class="report-section hidden"></section>
+      </section>
+
+      <section class="view" id="view-history">
+        <div class="page-heading simple-heading"><div><div class="eyebrow">WORKSPACE ACTIVITY <span class="eyebrow-line"></span></div><h1>Inspection <em>history.</em></h1><p class="lede">Reports saved locally in this browser. No source files are stored here.</p></div><button class="text-button clear-history" id="clear-history">Clear history</button></div>
+        <div id="full-history" class="history-list"><div class="empty-state">No inspections yet. Start by inspecting a GitHub repository.</div></div>
+      </section>
+
+      <footer class="footer"><span>DIS <b>·</b> DESIGN INTELLIGENCE SYSTEM</span><span>Independent by design. Built for every product.</span></footer>
+    </main>
+  </div>
+
+  <dialog id="settings-dialog" class="settings-dialog">
+    <form method="dialog" class="dialog-head"><div><span class="eyebrow">CONNECTION SETTINGS</span><h2>API access</h2></div><button class="icon-button" aria-label="Close">×</button></form>
+    <div class="dialog-body"><p>Enter the shared inspection key configured on your DIS server. It is kept in this browser tab's session storage and sent only to your DIS API.</p><label for="api-key-input">DIS inspection API key</label><input id="api-key-input" type="password" placeholder="Enter X-DIS-API-Key value" autocomplete="off"><div class="dialog-actions"><button class="text-button" id="clear-key" type="button">Clear key</button><button class="primary-button" id="save-key" type="button">Save for this session</button></div><small class="privacy-caption">Do not enter your GitHub personal access token here. Configure DIS_GITHUB_TOKEN on the server instead.</small></div>
+  </dialog>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
