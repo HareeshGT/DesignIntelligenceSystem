@@ -21,7 +21,18 @@ API_ROOT = "https://api.github.com"
 ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte", ".html", ".css", ".scss"}
 MAX_SOURCE_BYTES = 32_000
 MAX_PROPOSAL_BYTES = 32_000
-SECRET_RE = re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*([:=])\s*['\"`]?([A-Za-z0-9_./+=:-]{12,})")
+SECRET_PATTERNS = [
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*([:=])\s*['"]?([A-Za-z0-9_./+=:-]{12,})"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
+]
+
+
+def _redact_secrets(value: str) -> str:
+    for pattern in SECRET_PATTERNS:
+        value = pattern.sub("[REDACTED]", value)
+    return value
 
 class ImprovementError(RuntimeError):
     pass
@@ -72,18 +83,20 @@ class ImprovementService:
         ref = request.ref or metadata.get("default_branch") or "main"
         ref_data = self._request("GET", f"{base}/git/ref/heads/{quote(ref, safe='')}")
         commit_sha = ref_data["object"]["sha"]
+        if len(set(request.target_files)) != len(request.target_files):
+            raise ImprovementError("Duplicate source file paths are not allowed.")
         sources = []
         for path in request.target_files:
             if not _safe_source_path(path):
                 raise ImprovementError(f"File path is not allowed for automated UI changes: {path}")
             data = self._request("GET", f"{base}/contents/{quote(path, safe='/')}", params={"ref": ref})
-            if data.get("encoding") != "base64":
-                raise ImprovementError(f"Could not read source file: {path}")
+            if data.get("type") != "file" or data.get("encoding") != "base64":
+                raise ImprovementError(f"Only regular text source files can be proposed: {path}")
             raw = base64.b64decode(data["content"])
             if len(raw) > MAX_SOURCE_BYTES:
                 raise ImprovementError(f"Source file exceeds the {MAX_SOURCE_BYTES}-byte proposal limit: {path}")
             source = raw.decode("utf-8", errors="replace")
-            source = SECRET_RE.sub("[REDACTED]", source)
+            source = _redact_secrets(source)
             sources.append({"path": path, "sha": data["sha"], "content": source})
         prompt = {"repository": f"{owner}/{name}", "ref": ref, "visual_summary": request.visual_summary, "findings": [finding.model_dump() for finding in request.findings[:20]], "source_files": sources, "task": "Improve only supplied UI files to address evidence-backed findings. Preserve behavior and conventions. Return complete replacement contents for changed files only."}
         result = self.llm.complete_json(
@@ -111,7 +124,7 @@ class ImprovementService:
         payload = {"repository": f"{owner}/{name}", "ref": ref, "base_sha": commit_sha, "summary": str(result.get("summary", "UI improvement proposal"))[:1200], "changes": changes, "created_at": int(time.time())}
         encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
         signature = hmac.new(self.signing_key, encoded.encode(), hashlib.sha256).hexdigest()
-        return {"summary": payload["summary"], "repository": payload["repository"], "ref": ref, "files": [{"path": item["path"], "reason": item["reason"]} for item in changes], "diff": "".join(diff_parts)[:100_000], "proposal_token": encoded + "." + signature, "expires_in_seconds": 1800, "approval_required": True, "limitations": ["Proposal is based on supplied findings and bounded source files only.", "No code changes until the separate approval/apply endpoint is called."]}
+        return {"summary": payload["summary"], "repository": payload["repository"], "ref": ref, "files": [{"path": item["path"], "reason": item["reason"]} for item in changes], "diff": "".join(diff_parts), "proposal_token": encoded + "." + signature, "expires_in_seconds": 1800, "approval_required": True, "limitations": ["Proposal is based on supplied findings and bounded source files only.", "No code changes until the separate approval/apply endpoint is called."]}
 
     def _consume_proposal(self, encoded: str) -> None:
         digest = hashlib.sha256(encoded.encode()).hexdigest()
