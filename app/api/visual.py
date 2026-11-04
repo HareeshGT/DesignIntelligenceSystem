@@ -22,7 +22,7 @@ def inspect_visual(
     if credentials_configured and not expected_key:
         raise HTTPException(status_code=503, detail="Inspection credentials are configured; set DIS_REPOSITORY_INSPECTION_API_KEY.")
     if expected_key and (
-        not api_key or not hmac.compare_digest(api_key, expected_key)
+        not api_key or not hmac.compare_digest(api_key.encode("utf-8"), expected_key.encode("utf-8"))
     ):
         raise HTTPException(status_code=401, detail="Invalid or missing DIS API key.")
     try:
