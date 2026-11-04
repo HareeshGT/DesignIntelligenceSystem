@@ -11,6 +11,10 @@ from app.services.visual_inspector import VisualInspectionError, VisualInspector
 router = APIRouter(prefix="/api/v1/visual", tags=["visual intelligence"])
 
 
+def _api_key_matches(api_key: str | None, expected_key: str) -> bool:
+    return bool(api_key) and hmac.compare_digest(api_key.encode("utf-8"), expected_key.encode("utf-8"))
+
+
 @router.post("/inspect")
 def inspect_visual(
     request: VisualInspectionRequest,
@@ -22,7 +26,7 @@ def inspect_visual(
     if credentials_configured and not expected_key:
         raise HTTPException(status_code=503, detail="Inspection credentials are configured; set DIS_REPOSITORY_INSPECTION_API_KEY.")
     if expected_key and (
-        not api_key or not hmac.compare_digest(api_key.encode("utf-8"), expected_key.encode("utf-8"))
+        not _api_key_matches(api_key, expected_key)
     ):
         raise HTTPException(status_code=401, detail="Invalid or missing DIS API key.")
     try:
