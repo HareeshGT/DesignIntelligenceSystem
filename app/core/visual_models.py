@@ -5,7 +5,7 @@ class VisualInspectionRequest(BaseModel):
     url: HttpUrl
     capture_screenshots: bool = True
     page_timeout_ms: int = Field(default=20000, ge=3000, le=60000)
-    analyze_with_vision: bool = True
+    analyze_with_vision: bool = False
     crawl_internal_routes: bool = False
     max_routes: int = Field(default=4, ge=1, le=8)
 
