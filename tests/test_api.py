@@ -121,14 +121,11 @@ def test_visual_compare_requires_shared_key_when_configured(monkeypatch):
     assert response.status_code == 401
 
 
-def test_visual_endpoint_rejects_non_ascii_api_key_without_server_error(monkeypatch):
-    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "expected-secret")
-    response = client.post(
-        "/api/v1/visual/inspect",
-        headers={"X-DIS-API-Key": "é"},
-        json={"url": "http://localhost:8000"},
-    )
-    assert response.status_code == 401
+def test_visual_api_key_comparison_handles_non_ascii_header_values():
+    from app.api.visual import _api_key_matches
+
+    assert _api_key_matches("é", "expected-secret") is False
+    assert _api_key_matches("expected-secret", "expected-secret") is True
 
 
 def test_provider_status_uses_resolved_vision_provider_configuration(monkeypatch):
