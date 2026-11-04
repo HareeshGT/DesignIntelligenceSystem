@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.repositories import router as repositories_router
+from app.api.visual import router as visual_router
 from app.core.models import ApprovalRequest, DesignRequest
 from app.core.permissions import PermissionPolicy
 from app.services.llm import LLMProvider
@@ -17,10 +18,11 @@ load_dotenv()
 
 app = FastAPI(
     title="Design Intelligence System",
-    version="0.3.0",
-    description="A modular design intelligence API with read-only GitHub repository inspection.",
+    version="0.4.0",
+    description="A modular design intelligence API with repository and browser-based visual inspection.",
 )
 app.include_router(repositories_router)
+app.include_router(visual_router)
 WEB_STATIC_DIR = Path(__file__).parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=WEB_STATIC_DIR), name="static")
 
