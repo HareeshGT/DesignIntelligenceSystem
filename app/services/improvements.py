@@ -187,12 +187,16 @@ class ImprovementService:
             raise ImprovementError("Proposal approval token is invalid.") from exc
         if int(time.time()) - int(payload.get("created_at", 0)) > 1800:
             raise ImprovementError("Proposal expired. Generate a fresh proposal before applying it.")
-        self._consume_proposal(encoded)
         owner, name = _repository_parts(payload["repository"])
         base = f"{API_ROOT}/repos/{owner}/{name}"
         latest = self._request("GET", f"{base}/git/ref/heads/{quote(payload['ref'], safe='')}")
         if latest["object"]["sha"] != payload["base_sha"]:
             raise ImprovementError("Target branch changed after proposal generation. Re-inspect and propose again.")
+        if not isinstance(payload.get("changes"), list) or not payload["changes"]:
+            raise ImprovementError("Proposal contains no approved source changes.")
+        if any(not isinstance(change, dict) or not _safe_source_path(str(change.get("path", ""))) for change in payload["changes"]):
+            raise ImprovementError("Proposal contains a path that is no longer permitted.")
+        self._consume_proposal(encoded)
         branch = "dis/ui-improvement-" + uuid.uuid4().hex[:12]
         self._request("POST", f"{base}/git/refs", write=True, json={"ref": f"refs/heads/{branch}", "sha": payload["base_sha"]})
         for change in payload["changes"]:
