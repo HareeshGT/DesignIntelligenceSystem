@@ -161,6 +161,7 @@ class LLMProvider:
         return response.json()["choices"][0]["message"]["content"]
 
     def _anthropic(self, system: str, prompt: str, max_tokens: int = 1800) -> str:
+        self._validate_provider_endpoint()
         self._validate_custom_base_url()
         base = self.base_url or "https://api.anthropic.com/v1"
         response = httpx.post(
@@ -213,8 +214,17 @@ class LLMProvider:
             return parsed
         except ProviderError:
             raise
-        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
-            raise ProviderError("Vision provider request failed or returned an invalid response") from exc
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            detail = self._provider_http_error_detail(exc.response)
+            suffix = f": {detail}" if detail else ""
+            raise ProviderError(f"Vision provider rejected the request (HTTP {status}){suffix}") from exc
+        except httpx.TimeoutException as exc:
+            raise ProviderError("Vision provider request timed out. Check provider availability and try again.") from exc
+        except httpx.HTTPError as exc:
+            raise ProviderError("Could not connect to the vision provider. Check the API endpoint and network access.") from exc
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
+            raise ProviderError("Vision provider returned an invalid or unexpected response. Check provider/model compatibility.") from exc
 
     def _openai_compatible_images(
         self, system: str, prompt: str, images: list[dict[str, str]]
@@ -233,6 +243,7 @@ class LLMProvider:
             json={
                 "model": self.model,
                 "temperature": 0.2,
+                "max_tokens": 2400,
                 "response_format": {"type": "json_object"},
                 "messages": [
                     {"role": "system", "content": system},
@@ -252,6 +263,7 @@ class LLMProvider:
     def _anthropic_images(
         self, system: str, prompt: str, images: list[dict[str, str]]
     ) -> str:
+        self._validate_provider_endpoint()
         self._validate_custom_base_url()
         base = self.base_url or "https://api.anthropic.com/v1"
         content = [{"type": "text", "text": prompt}]
@@ -283,6 +295,8 @@ class LLMProvider:
 
     @staticmethod
     def _parse_json(content: str) -> dict[str, Any]:
+        if not isinstance(content, str):
+            raise ProviderError("Model response content must be text containing a JSON object")
         text = content.strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
