@@ -108,3 +108,14 @@ def test_improvement_endpoints_reject_invalid_api_key(monkeypatch):
         json={"repository":"owner/repo","target_files":["src/App.tsx"],"findings":[{"title":"test"}]},
     )
     assert response.status_code == 401
+
+
+def test_visual_compare_requires_shared_key_when_configured(monkeypatch):
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "compare-secret")
+    monkeypatch.delenv("DIS_GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("DIS_LLM_API_KEY", raising=False)
+    response = client.post(
+        "/api/v1/visual/compare",
+        json={"baseline_url":"https://before.example","candidate_url":"https://after.example"},
+    )
+    assert response.status_code == 401
