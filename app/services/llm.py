@@ -43,7 +43,7 @@ class LLMProvider:
             if self.provider == "anthropic":
                 content = self._anthropic(system, prompt, max_tokens=max_tokens)
             elif self.provider in {"openai", "openai-compatible", "groq", "gemini", "mistral", "openrouter"}:
-                content = self._openai_compatible(system, prompt)
+                content = self._openai_compatible(system, prompt, max_tokens=max_tokens)
             else:
                 raise ProviderError(f"Unsupported provider: {self.provider}")
             parsed = self._parse_json(content)
@@ -55,7 +55,7 @@ class LLMProvider:
         except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
             raise ProviderError("Model provider request failed or returned an invalid response") from exc
 
-    def _openai_compatible(self, system: str, prompt: str) -> str:
+    def _openai_compatible(self, system: str, prompt: str, max_tokens: int = 1800) -> str:
         base = self.base_url or "https://api.openai.com/v1"
         response = httpx.post(
             f"{base}/chat/completions",
@@ -63,6 +63,7 @@ class LLMProvider:
             json={
                 "model": self.model,
                 "temperature": 0.2,
+                "max_tokens": max(256, min(max_tokens, 16000)),
                 "response_format": {"type": "json_object"},
                 "messages": [
                     {"role": "system", "content": system},
