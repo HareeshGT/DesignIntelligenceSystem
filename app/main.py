@@ -1,5 +1,9 @@
+from pathlib import Path
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.repositories import router as repositories_router
 from app.core.models import ApprovalRequest, DesignRequest
@@ -17,6 +21,16 @@ app = FastAPI(
     description="A modular design intelligence API with read-only GitHub repository inspection.",
 )
 app.include_router(repositories_router)
+WEB_STATIC_DIR = Path(__file__).parent / "web" / "static"
+app.mount("/static", StaticFiles(directory=WEB_STATIC_DIR), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def dashboard():
+    """Serve the browser-based DIS workspace."""
+    return FileResponse(WEB_STATIC_DIR / "index.html")
+
+
 memory = ProjectMemory()
 llm = LLMProvider()
 orchestrator = Orchestrator(memory=memory, llm=llm)
