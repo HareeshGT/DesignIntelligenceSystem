@@ -20,7 +20,7 @@ API_ROOT = "https://api.github.com"
 ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte", ".html", ".css", ".scss"}
 MAX_SOURCE_BYTES = 32_000
 MAX_PROPOSAL_BYTES = 32_000
-SECRET_RE = re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\\s*([:=])\\s*['\"`]?([A-Za-z0-9_./+=:-]{12,})")
+SECRET_RE = re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*([:=])\\s*['\"`]?([A-Za-z0-9_./+=:-]{12,})")
 
 class ImprovementError(RuntimeError):
     pass
