@@ -155,3 +155,20 @@ def test_provider_status_does_not_report_partial_vision_config_as_enabled(monkey
     assert response.status_code == 200
     assert response.json()["vision_configured"] is False
     assert response.json()["vision_provider"] is None
+
+
+def test_provider_status_uses_request_scoped_user_model_without_exposing_key():
+    response = client.get(
+        "/api/v1/provider",
+        headers={
+            "X-DIS-LLM-Provider": "openai-compatible",
+            "X-DIS-LLM-Model": "user-model",
+            "X-DIS-LLM-API-Key": "user-secret-never-return-this",
+            "X-DIS-LLM-Base-URL": "https://api.example.com/v1",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["configured"] is True
+    assert response.json()["provider"] == "openai-compatible"
+    assert response.json()["model"] == "user-model"
+    assert "user-secret-never-return-this" not in response.text
