@@ -34,7 +34,7 @@ flowchart TD
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e '.[dev]'
 cp .env.example .env
 uvicorn app.main:app --reload
@@ -81,7 +81,7 @@ Example:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/repositories/inspect \
   -H 'Content-Type: application/json' \
-  -H 'X-DIS-API-Key: your_shared_key' \\
+  -H 'X-DIS-API-Key: your_shared_key' \
   -d '{"repository":"HareeshGT/KubeDock","include_file_samples":true}'
 ```
 
@@ -141,8 +141,8 @@ The container runs as a non-root user, includes a health check, and stores SQLit
 Example:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/design/runs \\
-  -H 'Content-Type: application/json' \\
+curl -X POST http://127.0.0.1:8000/api/v1/design/runs \
+  -H 'Content-Type: application/json' \
   -d '{"brief":"Design a premium analytics dashboard","constraints":["WCAG AA","mobile first"]}'
 ```
 
