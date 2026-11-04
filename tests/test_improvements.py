@@ -15,6 +15,13 @@ def test_only_existing_frontend_source_paths_are_allowed():
     assert not _safe_source_path("server.py")
     assert not _safe_source_path("src/api/client.ts")
     assert not _safe_source_path("backend/routes.ts")
+    assert not _safe_source_path("src/api.ts")
+    assert not _safe_source_path("auth.ts")
+    assert not _safe_source_path("webpack.config.js")
+    assert not _safe_source_path("Package.swift")
+    assert not _safe_source_path("build.gradle.kts")
+    assert not _safe_source_path("src/middleware.ts")
+    assert not _safe_source_path("next.config.ts")
 
 def test_repository_identifier_parser_rejects_untrusted_host():
     with pytest.raises(ImprovementError):
@@ -22,7 +29,7 @@ def test_repository_identifier_parser_rejects_untrusted_host():
 
 def test_apply_requires_explicit_approval(monkeypatch):
     monkeypatch.setenv("DIS_GITHUB_WRITE_TOKEN", "write-token")
-    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "signing-key")
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "client-api-key")
     with pytest.raises(ImprovementError, match="Explicit approval"):
         ImprovementService().apply("not-a-valid-token", False)
 
@@ -35,7 +42,8 @@ def test_signed_approval_token_can_only_be_applied_once(monkeypatch, tmp_path):
     import time
 
     monkeypatch.setenv("DIS_GITHUB_WRITE_TOKEN", "write-token")
-    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "signing-key")
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "client-api-key")
+    monkeypatch.setenv("DIS_PROPOSAL_SIGNING_KEY", "signing-key")
     monkeypatch.setenv("DIS_DATABASE_PATH", str(tmp_path / "dis.sqlite"))
     payload = {
         "repository": "owner/repo",
