@@ -222,7 +222,7 @@ class VisualInspector:
                             if name == "desktop":
                                 inspected_pages.append(InspectedPage(url=page.url, title=page_title, status_code=response.status if response else None))
                                 if request.crawl_internal_routes:
-                                    original = urlparse(target)
+                                    original = urlparse(page.url)
                                     hrefs = page.eval_on_selector_all("a[href]", "items => items.map(item => item.href)")[:100]
                                     for href in hrefs:
                                         candidate = urlparse(urljoin(page.url, href))
