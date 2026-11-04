@@ -1,7 +1,7 @@
 import pytest
 
 from app.core.improvement_models import ImprovementProposalRequest
-from app.services.improvements import ImprovementError, ImprovementService, _repository_parts, _safe_source_path
+from app.services.improvements import ImprovementError, ImprovementService, _repository_parts, _safe_scope_path, _safe_source_path, _ui_source_score
 from app.services.llm import ProviderError
 
 def test_only_existing_frontend_source_paths_are_allowed():
@@ -14,10 +14,10 @@ def test_only_existing_frontend_source_paths_are_allowed():
     assert not _safe_source_path(r"src\\api.ts")
     assert not _safe_source_path(".github/workflows/release.yml")
     assert not _safe_source_path("package.json")
-    assert not _safe_source_path("server.py")
-    assert not _safe_source_path("src/api/client.ts")
-    assert not _safe_source_path("backend/routes.ts")
-    assert not _safe_source_path("src/api.ts")
+    assert _safe_source_path("server.py")
+    assert _safe_source_path("src/api/client.ts")
+    assert _safe_source_path("backend/routes.py")
+    assert _safe_source_path("src/api.ts")
     assert not _safe_source_path("auth.ts")
     assert not _safe_source_path("webpack.config.js")
     assert not _safe_source_path("Package.swift")
@@ -26,6 +26,31 @@ def test_only_existing_frontend_source_paths_are_allowed():
     assert not _safe_source_path("src/middleware/index.ts")
     assert not _safe_source_path("src/api.client.ts")
     assert not _safe_source_path("next.config.ts")
+
+def test_repository_scopes_accept_root_directories_and_python_sources():
+    assert _safe_scope_path(".")
+    assert _safe_scope_path("app")
+    assert _safe_scope_path("app/api")
+    assert _safe_scope_path("backend")
+    assert not _safe_scope_path("../secrets")
+    assert not _safe_scope_path(".github")
+    assert not _safe_scope_path("tests")
+
+
+def test_ui_source_classifier_uses_python_file_contents_not_extension():
+    assert _ui_source_score("app/views.py", "from flask import render_template\\n@app.get('/dashboard')\\ndef dashboard(): return render_template('dashboard.html')") >= 8
+    assert _ui_source_score("app/routes.py", "@router.get('/api/v1/dashboard')\\ndef dashboard_data(): return {'cards': []}") >= 8
+    assert _ui_source_score("app/database.py", "def connect_database(): return sqlite3.connect('app.db')") == 0
+    assert _ui_source_score("app/services.py", "def calculate_invoice_total(items): return sum(items)") == 0
+
+
+def test_root_scope_matches_nested_repository_files():
+    from app.services.improvements import _scope_matches
+
+    assert _scope_matches("app/views.py", ".")
+    assert _scope_matches("app/views.py", "app")
+    assert not _scope_matches("tests/test_views.py", "app")
+
 
 def test_repository_identifier_parser_rejects_untrusted_host():
     with pytest.raises(ImprovementError):
