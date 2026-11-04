@@ -114,6 +114,8 @@ class ImprovementService:
             path, content = item.get("path"), item.get("content")
             if path not in source_map or not isinstance(content, str) or len(content.encode()) > MAX_PROPOSAL_BYTES:
                 raise ImprovementError("The model proposed an unknown path or oversized replacement file.")
+            if any(pattern.search(content) for pattern in SECRET_PATTERNS) or "[REDACTED]" in content:
+                raise ImprovementError("Generated content appears to contain a credential or redacted secret marker.")
             original = source_map[path]["content"]
             if content == original:
                 continue
