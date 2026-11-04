@@ -120,6 +120,7 @@
             <label for="improvement-repo">GitHub repository (owner/name)</label><input id="improvement-repo" type="text" placeholder="owner/repository" required>
             <label for="improvement-ref">Target branch</label><input id="improvement-ref" type="text" placeholder="main">
             <label for="improvement-files">Existing UI source file paths (comma-separated, max 4)</label><textarea id="improvement-files" rows="3" placeholder="src/pages/Dashboard.tsx, src/styles.css" required></textarea>
+            <div class="check-row"><input type="checkbox" id="source-consent"><label for="source-consent">I agree to send these selected source files and visual findings to the configured LLM provider to generate a patch.</label></div>
             <button class="primary-button submit-button" type="submit" id="propose-submit">Generate improvement proposal →</button>
             <p class="form-error" id="improvement-error" role="alert"></p>
           </form>
