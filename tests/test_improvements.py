@@ -9,6 +9,8 @@ def test_only_existing_frontend_source_paths_are_allowed():
     assert not _safe_source_path(".github/workflows/release.yml")
     assert not _safe_source_path("package.json")
     assert not _safe_source_path("server.py")
+    assert not _safe_source_path("src/api/client.ts")
+    assert not _safe_source_path("backend/routes.ts")
 
 def test_repository_identifier_parser_rejects_untrusted_host():
     with pytest.raises(ImprovementError):
