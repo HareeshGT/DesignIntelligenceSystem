@@ -22,6 +22,7 @@ ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte", ".html", ".
 MAX_SOURCE_BYTES = 32_000
 MAX_PROPOSAL_BYTES = 32_000
 FORBIDDEN_PATH_PARTS = {"api", "auth", "backend", "database", "db", "infra", "migrations", "scripts", "server", "test", "tests"}
+FORBIDDEN_SOURCE_NAMES = {"api.ts", "api.js", "auth.ts", "auth.js", "server.ts", "server.js", "middleware.ts", "middleware.js", "package.swift", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "webpack.config.js", "webpack.config.ts", "next.config.js", "next.config.ts", "vite.config.js", "vite.config.ts", "metro.config.js", "electron.vite.config.ts"}
 SECRET_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*['\"]?\s*([:=])\s*['\"]?([A-Za-z0-9_./+=:-]{12,})"),
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
@@ -51,7 +52,12 @@ def _safe_source_path(path: str) -> bool:
     if not path or path.startswith("/") or ".." in path.split("/") or path.startswith("."):
         return False
     parts = [part.lower() for part in path.split("/")]
+    filename = parts[-1]
     if any(part.startswith(".") or part in FORBIDDEN_PATH_PARTS for part in parts):
+        return False
+    if filename in FORBIDDEN_SOURCE_NAMES or filename.startswith(("api.", "auth.", "server.", "middleware.")):
+        return False
+    if filename.endswith((".config.js", ".config.ts", ".config.mjs", ".config.cjs")):
         return False
     return any(path.lower().endswith(suffix) for suffix in ALLOWED_SUFFIXES)
 
@@ -60,7 +66,7 @@ class ImprovementService:
         self.llm = llm or LLMProvider(timeout=60)
         self.read_token = os.getenv("DIS_GITHUB_TOKEN", "").strip()
         self.write_token = os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip()
-        self.signing_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip().encode()
+        self.signing_key = os.getenv("DIS_PROPOSAL_SIGNING_KEY", "").strip().encode()
         self.database_path = os.getenv("DIS_DATABASE_PATH", "./design_intelligence.db")
 
     def _request(self, method: str, url: str, *, write: bool = False, **kwargs):
@@ -84,7 +90,7 @@ class ImprovementService:
         if not self.llm.enabled:
             raise ImprovementError("Configure a code-capable LLM before requesting source improvements.")
         if not self.signing_key:
-            raise ImprovementError("Configure DIS_REPOSITORY_INSPECTION_API_KEY to sign approval-bound proposals.")
+            raise ImprovementError("Configure a separate server-only DIS_PROPOSAL_SIGNING_KEY to sign approval-bound proposals.")
         owner, name = _repository_parts(request.repository)
         base = f"{API_ROOT}/repos/{owner}/{name}"
         metadata = self._request("GET", base)
@@ -165,7 +171,7 @@ class ImprovementService:
         try:
             encoded, signature = token.split(".", 1)
             expected = hmac.new(self.signing_key, encoded.encode(), hashlib.sha256).hexdigest()
-            if not hmac.compare_digest(signature, expected):
+            if not hmac.compare_digest(signature.encode("utf-8"), expected.encode("utf-8")):
                 raise ImprovementError("Proposal approval token is invalid or modified.")
             payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
         except (ValueError, json.JSONDecodeError) as exc:
