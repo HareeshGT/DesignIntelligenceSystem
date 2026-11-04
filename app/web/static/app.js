@@ -340,7 +340,12 @@ function renderVisualReport(data) {
 
 async function inspectVisual(event) {
   event.preventDefault();
+  latestVisualReport = null;
+  latestRepositoryReport = null;
+  latestProposalToken = null;
   $("visual-error").textContent = "";
+  $("improvement-error").textContent = "";
+  $("proposal-report").classList.add("hidden");
   $("visual-report").classList.add("hidden");
   const button = $("visual-submit");
   button.disabled = true;
@@ -373,7 +378,11 @@ async function inspectVisual(event) {
       }
       return body;
     }) : Promise.resolve(null);
-    const [body, repositoryReport] = await Promise.all([visualRequest, repositoryRequest]);
+    const [visualResult, repositoryResult] = await Promise.allSettled([visualRequest, repositoryRequest]);
+    if (visualResult.status === "rejected") throw visualResult.reason;
+    const body = visualResult.value;
+    const repositoryReport = repositoryResult.status === "fulfilled" ? repositoryResult.value : null;
+    const repositoryWarning = repositoryResult.status === "rejected" ? repositoryResult.reason?.message || "Linked repository inspection failed." : "";
     latestVisualReport = body;
     latestRepositoryReport = repositoryReport;
     if (repositoryReport) {
@@ -385,6 +394,10 @@ async function inspectVisual(event) {
       if (!$("improvement-files").value.trim() && suggested.length) $("improvement-files").value = suggested.join(", ");
     }
     renderVisualReport(body);
+    if (repositoryWarning) {
+      const warning = el("div", "report-card full warning", "Visual inspection succeeded, but linked repository context was unavailable: " + repositoryWarning);
+      $("visual-report").append(warning);
+    }
     if (repositoryReport) {
       const context = el("div", "report-card full");
       context.append(el("h3", "", "Linked repository context: " + repositoryReport.repository));
