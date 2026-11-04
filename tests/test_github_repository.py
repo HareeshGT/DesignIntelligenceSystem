@@ -1,5 +1,3 @@
-import base64
-
 import pytest
 
 from app.services.github_repository import (
@@ -69,3 +67,52 @@ def test_likely_embedded_credentials_are_redacted():
     assert "sk-123456789012345678901234" not in redacted
     assert "abcdefghijklmnopqrstuvwxyz123456" not in redacted
     assert "[REDACTED]" in redacted
+
+
+def test_inspector_builds_read_only_inventory_from_github_api(monkeypatch):
+    import json
+    from urllib.parse import urlparse
+
+    class FakeResponse:
+        def __init__(self, payload, status_code=200):
+            self._payload = payload
+            self.status_code = status_code
+
+        def json(self):
+            return self._payload
+
+    package = json.dumps({
+        "dependencies": {"react": "^18", "vite": "^5"},
+        "scripts": {"test": "vitest run"},
+    }).encode()
+    readme = b"# Demo app"
+    files = [
+        {"path": "package.json", "type": "blob"},
+        {"path": "README.md", "type": "blob"},
+        {"path": "src/main.tsx", "type": "blob"},
+        {"path": "src/components/Dashboard.tsx", "type": "blob"},
+        {"path": ".env", "type": "blob"},
+    ]
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        if url.endswith("/repos/acme/demo"):
+            return FakeResponse({"default_branch": "main", "description": "Demo", "language": "TypeScript"})
+        if "/git/trees/" in url:
+            return FakeResponse({"tree": files, "truncated": False})
+        path = url.split("/contents/", 1)[1]
+        content = {"package.json": package, "README.md": readme}.get(path, b"")
+        return FakeResponse({
+            "encoding": "base64",
+            "content": __import__("base64").b64encode(content).decode(),
+        })
+
+    monkeypatch.setattr("app.services.github_repository.httpx.get", fake_get)
+    result = GitHubRepositoryInspector().inspect("acme/demo")
+    assert result.repository == "acme/demo"
+    assert result.ref == "main"
+    assert "React" in result.frameworks
+    assert "Vite" in result.frameworks
+    assert "src/main.tsx" in result.app_entry_points
+    assert "npm run test (declared; not executed)" in result.test_and_lint_commands
+    assert all(".env" not in item.path for item in result.file_evidence)
+    assert "not executed" in " ".join(result.limitations)
