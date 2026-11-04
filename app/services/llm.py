@@ -36,12 +36,12 @@ class LLMProvider:
     def enabled(self) -> bool:
         return bool(self.api_key and self.model)
 
-    def complete_json(self, system: str, prompt: str) -> dict[str, Any]:
+    def complete_json(self, system: str, prompt: str, max_tokens: int = 1800) -> dict[str, Any]:
         if not self.enabled:
             raise ProviderError("LLM provider is not configured")
         try:
             if self.provider == "anthropic":
-                content = self._anthropic(system, prompt)
+                content = self._anthropic(system, prompt, max_tokens=max_tokens)
             elif self.provider in {"openai", "openai-compatible", "groq", "gemini", "mistral", "openrouter"}:
                 content = self._openai_compatible(system, prompt)
             else:
@@ -74,7 +74,7 @@ class LLMProvider:
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
 
-    def _anthropic(self, system: str, prompt: str) -> str:
+    def _anthropic(self, system: str, prompt: str, max_tokens: int = 1800) -> str:
         base = self.base_url or "https://api.anthropic.com/v1"
         response = httpx.post(
             f"{base}/messages",
@@ -85,7 +85,7 @@ class LLMProvider:
             },
             json={
                 "model": self.model,
-                "max_tokens": 1800,
+                "max_tokens": max(256, min(max_tokens, 16000)),
                 "temperature": 0.2,
                 "system": system + " Return only a valid JSON object, with no markdown fences.",
                 "messages": [{"role": "user", "content": prompt}],
@@ -156,6 +156,8 @@ class LLMProvider:
         message = response.json()["choices"][0]["message"]["content"]
         if isinstance(message, list):
             return "".join(part.get("text", "") for part in message if isinstance(part, dict))
+        if not isinstance(message, str):
+            raise ProviderError("Vision provider returned no text content")
         return message
 
     def _anthropic_images(
