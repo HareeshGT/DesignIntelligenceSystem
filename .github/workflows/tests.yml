@@ -44,3 +44,4 @@ jobs:
           curl --fail http://127.0.0.1:8000/
           curl --fail http://127.0.0.1:8000/static/app.js
           curl --fail http://127.0.0.1:8000/api/v1/provider
+          docker exec dis-smoke python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(headless=True, chromium_sandbox=True, args=["--disable-dev-shm-usage"]); page=b.new_page(); page.set_content("<h1>DIS browser smoke</h1>"); assert page.locator("h1").inner_text() == "DIS browser smoke"; b.close(); p.stop()'
