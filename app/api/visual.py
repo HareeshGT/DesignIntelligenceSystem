@@ -27,7 +27,9 @@ def inspect_visual(
 ):
     """Render a public web page at desktop, tablet and mobile sizes and audit observable UI signals."""
     expected_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip()
-    credentials_configured = bool(llm_api_key or os.getenv("DIS_GITHUB_TOKEN", "").strip() or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip() or os.getenv("DIS_LLM_API_KEY", "").strip() or os.getenv("DIS_VISION_LLM_API_KEY", "").strip())
+    # A caller's own model key is request-scoped and does not require a
+    # server-shared key. Protect only deployments holding server-side secrets.
+    credentials_configured = bool(os.getenv("DIS_GITHUB_TOKEN", "").strip() or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip() or os.getenv("DIS_LLM_API_KEY", "").strip() or os.getenv("DIS_VISION_LLM_API_KEY", "").strip())
     if credentials_configured and not expected_key:
         raise HTTPException(status_code=503, detail="Inspection credentials are configured; set DIS_REPOSITORY_INSPECTION_API_KEY.")
     if expected_key and (
