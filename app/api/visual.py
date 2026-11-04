@@ -35,7 +35,8 @@ def inspect_visual(
     ):
         raise HTTPException(status_code=401, detail="Invalid or missing DIS API key.")
     try:
-        return VisualInspector(provider=request_llm(llm_provider, llm_model, llm_api_key, llm_base_url, timeout=45.0)).inspect(request).model_dump(mode="json")
+        request_provider = request_llm(llm_provider, llm_model, llm_api_key, llm_base_url, timeout=45.0) if llm_api_key else None
+        return VisualInspector(provider=request_provider).inspect(request).model_dump(mode="json")
     except VisualInspectionError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
