@@ -81,6 +81,7 @@ class ImprovementService:
             if len(raw) > MAX_SOURCE_BYTES:
                 raise ImprovementError(f"Source file exceeds the {MAX_SOURCE_BYTES}-byte proposal limit: {path}")
             source = raw.decode("utf-8", errors="replace")
+            source = SECRET_RE.sub("[REDACTED]", source)
             sources.append({"path": path, "sha": data["sha"], "content": source})
         prompt = {"repository": f"{owner}/{name}", "ref": ref, "visual_summary": request.visual_summary, "findings": request.findings[:20], "source_files": sources, "task": "Improve only supplied UI files to address evidence-backed findings. Preserve behavior and conventions. Return complete replacement contents for changed files only."}
         result = self.llm.complete_json(
