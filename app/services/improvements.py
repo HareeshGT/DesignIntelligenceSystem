@@ -62,10 +62,10 @@ def _safe_source_path(path: str) -> bool:
     return any(path.lower().endswith(suffix) for suffix in ALLOWED_SUFFIXES)
 
 class ImprovementService:
-    def __init__(self, llm: LLMProvider | None = None):
+    def __init__(self, llm: LLMProvider | None = None, read_token: str | None = None, write_token: str | None = None):
         self.llm = llm or LLMProvider(timeout=60)
-        self.read_token = os.getenv("DIS_GITHUB_TOKEN", "").strip()
-        self.write_token = os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip()
+        self.read_token = (read_token if read_token is not None else os.getenv("DIS_GITHUB_TOKEN", "")).strip()
+        self.write_token = (write_token if write_token is not None else os.getenv("DIS_GITHUB_WRITE_TOKEN", "")).strip()
         client_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip().encode("utf-8")
         self.signing_key = os.getenv("DIS_PROPOSAL_SIGNING_KEY", "").strip().encode("utf-8")
         if self.signing_key and client_key and hmac.compare_digest(self.signing_key, client_key):
