@@ -58,8 +58,9 @@ def resolve_platform_profiles(frameworks: list[str], stacks: list[str]) -> list[
         profiles.append(REACT_NATIVE_PROFILE)
     if "flutter" in labels:
         profiles.append(FLUTTER_PROFILE)
-    web_labels = {"react", "next.js", "vue", "nuxt", "svelte", "angular", "astro", "vite", "tailwind css"}
-    if labels.intersection(web_labels):
+    explicit_web_labels = {"next.js", "vue", "nuxt", "svelte", "angular", "astro", "vite", "tailwind css"}
+    has_react_web = "react" in labels and "react native" not in labels
+    if labels.intersection(explicit_web_labels) or has_react_web:
         profiles.append(WEB_PROFILE)
     if "swift / apple platform" in labels or "qt desktop" in labels:
         profiles.append(NATIVE_PROFILE)
