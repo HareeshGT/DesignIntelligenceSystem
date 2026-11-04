@@ -19,8 +19,7 @@ class Orchestrator:
         self.memory = memory
         self.last_planning_mode = "deterministic"
 
-    def _select_roles(self, request: DesignRequest) -> list[AgentRole]:
-        self.last_planning_mode = "deterministic"
+    def _select_roles(self, request: DesignRequest) -> tuple[list[AgentRole], str]:
         if self.llm.enabled:
             try:
                 output = self.llm.complete_json(
@@ -44,17 +43,16 @@ class Orchestrator:
                         if role in self.SPECIALISTS and role not in roles:
                             roles.append(role)
                 if roles:
-                    self.last_planning_mode = "llm"
-                    return [role for role in self.ORDER if role in roles]
+                    return [role for role in self.ORDER if role in roles], "llm"
             except ProviderError:
                 pass
-        return list(self.ORDER)
+        return list(self.ORDER), "deterministic"
 
     def build_plan(self, request: DesignRequest) -> list[AgentTask]:
         tasks: list[AgentTask] = []
         previous_id = None
-        selected_roles = self._select_roles(request)
-        planning_mode = self.last_planning_mode
+        selected_roles, planning_mode = self._select_roles(request)
+        self.last_planning_mode = planning_mode  # Retained for diagnostics and tests.
         for role in selected_roles:
             task = AgentTask(
                 role=role,
