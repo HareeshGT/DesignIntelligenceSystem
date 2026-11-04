@@ -22,7 +22,7 @@ ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte", ".html", ".
 MAX_SOURCE_BYTES = 32_000
 MAX_PROPOSAL_BYTES = 32_000
 SECRET_PATTERNS = [
-    re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*([:=])\s*['"]?([A-Za-z0-9_./+=:-]{12,})"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*([:=])\s*['\"]?([A-Za-z0-9_./+=:-]{12,})"),
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
