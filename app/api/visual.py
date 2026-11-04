@@ -45,7 +45,7 @@ def compare_visuals(
     credentials_configured = bool(os.getenv("DIS_GITHUB_TOKEN", "").strip() or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip() or os.getenv("DIS_LLM_API_KEY", "").strip() or os.getenv("DIS_VISION_LLM_API_KEY", "").strip())
     if credentials_configured and not expected_key:
         raise HTTPException(status_code=503, detail="Set DIS_REPOSITORY_INSPECTION_API_KEY.")
-    if expected_key and (not api_key or not hmac.compare_digest(api_key, expected_key)):
+    if expected_key and not _api_key_matches(api_key, expected_key):
         raise HTTPException(status_code=401, detail="Invalid or missing DIS API key.")
     try:
         return VisualComparator().compare(request)
