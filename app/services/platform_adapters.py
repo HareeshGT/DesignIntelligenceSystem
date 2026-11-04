@@ -56,14 +56,12 @@ def resolve_platform_profiles(frameworks: list[str], stacks: list[str]) -> list[
         profiles.append(ELECTRON_PROFILE)
     if "react native" in labels:
         profiles.append(REACT_NATIVE_PROFILE)
-    if "flutter" in labels or "dart/flutter" in {value.lower() for value in stacks}:
+    if "flutter" in labels:
         profiles.append(FLUTTER_PROFILE)
     web_labels = {"react", "next.js", "vue", "nuxt", "svelte", "angular", "astro", "vite", "tailwind css"}
     if labels.intersection(web_labels):
         profiles.append(WEB_PROFILE)
     if "swift / apple platform" in labels or "qt desktop" in labels:
         profiles.append(NATIVE_PROFILE)
-    if not profiles:
-        profiles.append(WEB_PROFILE)
     unique = {profile.adapter_id: profile for profile in profiles}
     return [asdict(profile) for profile in unique.values()]
