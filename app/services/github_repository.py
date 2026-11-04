@@ -40,7 +40,9 @@ PRIORITY_NAMES = {
     "tailwind.config.js", "tailwind.config.ts", "tailwind.config.cjs",
     "components.json", "tsconfig.json", "pytest.ini",
 }
-SOURCE_SUFFIXES = {".tsx", ".jsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less"}
+SOURCE_SUFFIXES = {".tsx", ".jsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less", ".py", ".qss"}
+WEB_UI_SUFFIXES = {".tsx", ".jsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less", ".qss"}
+PYTHON_UI_TOKENS = ("ui", "view", "window", "widget", "dialog", "tab", "theme", "static_content")
 
 
 class RepositoryInspectionError(RuntimeError):
@@ -91,7 +93,7 @@ def _category(path: str) -> str:
         return "route_or_entry"
     if any(token in path.lower() for token in ("component", "widget", "layout")):
         return "component"
-    if suffix in {".css", ".scss", ".less"}:
+    if suffix in {".css", ".scss", ".less", ".qss"}:
         return "style"
     if suffix in SOURCE_SUFFIXES:
         return "source"
@@ -232,7 +234,7 @@ class GitHubRepositoryInspector:
     def _priority(item: dict[str, Any]) -> tuple[int, int, str]:
         path = item["path"]
         name = path.rsplit("/", 1)[-1].lower()
-        if name in PRIORITY_NAMES:
+        if name in PRIORITY_NAMES or name in {"main.py", "main_window.py", "themes.py", "ui_kit.py", "static_content.py"}:
             score = 0
         elif name == "readme.md":
             score = 1
@@ -294,12 +296,19 @@ class GitHubRepositoryInspector:
         )
         if swift_ui_evidence and any(p.endswith(".swift") for p in paths):
             frameworks.append("Swift / Apple platform")
-        if "pyproject.toml" in contents:
-            pyproject = contents["pyproject.toml"].lower()
-            for token, label in [("fastapi", "FastAPI"), ("django", "Django"), ("flask", "Flask"),
-                                 ("pyside", "Qt desktop"), ("pyqt", "Qt desktop")]:
-                if token in pyproject and label not in frameworks:
-                    frameworks.append(label)
+        python_dependency_text = "\\n".join(
+            contents.get(name, "") for name in ("pyproject.toml", "requirements.txt", "requirements-editor.txt")
+        ).lower()
+        for token, label in [
+            ("fastapi", "FastAPI"), ("django", "Django"), ("flask", "Flask"),
+            ("pyside", "Qt desktop"), ("pyqt", "Qt desktop"),
+        ]:
+            if token in python_dependency_text and label not in frameworks:
+                frameworks.append(label)
+        python_ui_imports = "\\n".join(contents.values()).lower()
+        if any(token in python_ui_imports for token in ("from tkinter", "import tkinter", "customtkinter")):
+            if "Tkinter desktop" not in frameworks:
+                frameworks.append("Tkinter desktop")
         return stacks, list(dict.fromkeys(managers)), list(dict.fromkeys(frameworks))
 
     @staticmethod
@@ -321,7 +330,8 @@ class GitHubRepositoryInspector:
     def _is_component_or_style(path: str) -> bool:
         p = path.lower()
         suffix = "." + p.rsplit(".", 1)[-1] if "." in p else ""
-        return suffix in SOURCE_SUFFIXES or "components/" in p or "design-system" in p
+        python_ui_file = suffix == ".py" and any(token in p for token in PYTHON_UI_TOKENS)
+        return suffix in WEB_UI_SUFFIXES or python_ui_file or "components/" in p or "design-system" in p
 
     @staticmethod
     def _commands(contents: dict[str, str]) -> list[str]:

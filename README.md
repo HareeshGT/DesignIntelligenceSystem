@@ -75,7 +75,7 @@ DIS can now inspect a GitHub repository without cloning it or executing its code
 - If a GitHub token or LLM API key is configured, also set `DIS_REPOSITORY_INSPECTION_API_KEY`. Requests must then include `X-DIS-API-Key`; the endpoint fails closed rather than exposing a configured GitHub token or allowing unauthenticated LLM usage.
 - DIS inventories the repository tree, detects common stacks and framework signals, identifies likely entry points/routes/components/styles/design-system files, and reports declared test/lint/build commands.
 - It samples a bounded number of files and limits bytes read. Likely embedded credentials are redacted before sampled text is sent to the configured LLM.
-- Repository reports include platform adapter profiles. Web apps use the browser visual workflow; Electron can use a supplied renderer preview URL; React Native, Flutter, Swift and Qt are identified with explicit native-runner limitations.
+- Repository reports include platform adapter profiles. Web apps use the browser visual workflow; Electron can use a supplied renderer preview URL; React Native, Flutter and Swift are identified with explicit native-runner limitations. PyQt/PySide desktop apps receive a Qt desktop profile with Python UI-source and QSS/theme analysis plus approved source-proposal support; a desktop runner is still required for live screenshots, widget-tree inspection and interaction tests.
 - It never executes project code, installs dependencies, runs tests, or claims visual verification. The report includes limitations and explicit “not executed” labels.
 - The endpoint accepts `owner/name` or a `https://github.com/owner/name` URL. An optional `ref` selects a branch, tag, or commit.
 
