@@ -42,5 +42,5 @@ async function propose(){
   p.append(apply);p.scrollIntoView({behavior:"smooth",block:"start"});
  }catch(x){$("studio-proposal-error").textContent=x.message}finally{b.disabled=false;b.textContent="Generate code proposal →"}
 }
-$("studio-form").addEventListener("submit",start);$("studio-propose").addEventListener("click",propose);if(location.hash==="#studio")navigate("studio");
+$("studio-form").addEventListener("submit",start);$("studio-propose").addEventListener("click",propose);if(location.hash==="#studio"||window.__disInitialHash==="#studio")navigate("studio");
 })();
