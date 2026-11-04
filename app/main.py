@@ -1,16 +1,18 @@
 from fastapi import FastAPI
 from app.core.models import ApprovalRequest, DesignRequest
 from app.core.permissions import PermissionPolicy
+from app.services.llm import LLMProvider
 from app.services.memory import ProjectMemory
 from app.services.orchestrator import Orchestrator
 
 app = FastAPI(
     title="Design Intelligence System",
-    version="0.1.0",
-    description="A modular multi-agent design planning and quality intelligence API.",
+    version="0.2.0",
+    description="A modular, provider-backed multi-agent design planning and quality intelligence API.",
 )
 memory = ProjectMemory()
-orchestrator = Orchestrator(memory=memory)
+llm = LLMProvider()
+orchestrator = Orchestrator(memory=memory, llm=llm)
 policy = PermissionPolicy()
 
 
@@ -23,6 +25,17 @@ def health():
 def list_agents():
     return [{"role": role.value, "description": agent.description}
             for role, agent in orchestrator.registry.items()]
+
+
+@app.get("/api/v1/provider")
+def provider_status():
+    """Expose safe provider metadata only; never return credentials."""
+    return {
+        "configured": llm.enabled,
+        "provider": llm.provider if llm.enabled else None,
+        "model": llm.model if llm.enabled else None,
+        "mode": "llm" if llm.enabled else "deterministic",
+    }
 
 
 @app.post("/api/v1/design/runs")
