@@ -225,7 +225,7 @@ class VisualInspector:
                                     hrefs = page.eval_on_selector_all("a[href]", "items => items.map(item => item.href)")[:100]
                                     for href in hrefs:
                                         candidate = urlparse(urljoin(page.url, href))
-                                        if candidate.scheme not in {"http", "https"} or candidate.hostname != original.hostname or candidate.port != original.port:
+                                        if candidate.scheme != original.scheme or candidate.hostname != original.hostname or candidate.port != original.port:
                                             continue
                                         if candidate.path == original.path or any(word in candidate.path.lower() for word in ("logout", "signout", "delete", "remove", "unsubscribe", "checkout", "purchase")):
                                             continue
