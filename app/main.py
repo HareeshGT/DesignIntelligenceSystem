@@ -12,7 +12,7 @@ from app.api.visual import router as visual_router
 from app.api.improvements import router as improvements_router
 from app.core.models import ApprovalRequest, DesignRequest
 from app.core.permissions import PermissionPolicy
-from app.services.llm import LLMProvider
+from app.services.llm import LLMProvider, request_llm
 from app.services.visual_design import VisualDesignAnalyzer
 from app.services.memory import ProjectMemory
 from app.services.orchestrator import Orchestrator
@@ -58,14 +58,15 @@ def list_agents():
 
 
 @app.get("/api/v1/provider")
-def provider_status():
-    """Expose safe provider metadata only; never return credentials."""
-    vision_provider = VisualDesignAnalyzer().provider
+def provider_status(llm_provider: str | None = Header(default=None, alias="X-DIS-LLM-Provider"), llm_model: str | None = Header(default=None, alias="X-DIS-LLM-Model"), llm_api_key: str | None = Header(default=None, alias="X-DIS-LLM-API-Key"), llm_base_url: str | None = Header(default=None, alias="X-DIS-LLM-Base-URL")):
+    """Expose safe request-scoped provider metadata only; never return credentials."""
+    current_llm = request_llm(llm_provider, llm_model, llm_api_key, llm_base_url)
+    vision_provider = VisualDesignAnalyzer(provider=current_llm).provider
     return {
-        "configured": llm.enabled,
-        "provider": llm.provider if llm.enabled else None,
-        "model": llm.model if llm.enabled else None,
-        "mode": "llm" if llm.enabled else "deterministic",
+        "configured": current_llm.enabled,
+        "provider": current_llm.provider if current_llm.enabled else None,
+        "model": current_llm.model if current_llm.enabled else None,
+        "mode": "llm" if current_llm.enabled else "deterministic",
         "vision_configured": vision_provider.enabled,
         "vision_provider": vision_provider.provider if vision_provider.enabled else None,
         "vision_model": vision_provider.model if vision_provider.enabled else None,
@@ -73,15 +74,16 @@ def provider_status():
 
 
 @app.post("/api/v1/design/runs")
-def create_design_run(request: DesignRequest, api_key: str | None = Header(default=None, alias="X-DIS-API-Key")):
-    """Run the specialist design team behind the same shared-key boundary as repository analysis."""
+def create_design_run(request: DesignRequest, api_key: str | None = Header(default=None, alias="X-DIS-API-Key"), llm_provider: str | None = Header(default=None, alias="X-DIS-LLM-Provider"), llm_model: str | None = Header(default=None, alias="X-DIS-LLM-Model"), llm_api_key: str | None = Header(default=None, alias="X-DIS-LLM-API-Key"), llm_base_url: str | None = Header(default=None, alias="X-DIS-LLM-Base-URL")):
+    """Run specialists with request-scoped user provider credentials."""
+    request_provider = request_llm(llm_provider, llm_model, llm_api_key, llm_base_url)
     expected_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip()
-    sensitive_credentials = bool(os.getenv("DIS_GITHUB_TOKEN", "").strip() or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip() or llm.enabled)
+    sensitive_credentials = bool(os.getenv("DIS_GITHUB_TOKEN", "").strip() or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip() or request_provider.enabled)
     if sensitive_credentials and not expected_key:
         raise HTTPException(status_code=503, detail="Set DIS_REPOSITORY_INSPECTION_API_KEY before using AI design runs.")
     if expected_key and (not api_key or not hmac.compare_digest(api_key.encode("utf-8"), expected_key.encode("utf-8"))):
         raise HTTPException(status_code=401, detail="Invalid or missing DIS API key.")
-    return orchestrator.run(request).model_dump(mode="json")
+    return Orchestrator(memory=memory, llm=request_provider).run(request).model_dump(mode="json")
 
 
 @app.post("/api/v1/permissions/evaluate")
