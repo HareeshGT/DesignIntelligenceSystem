@@ -121,7 +121,7 @@ DIS includes a browser-based workspace served by the FastAPI application:
 - **Inspection history** is stored in the current browser's local storage. It can be cleared from the History page.
 - Dashboard Settings accepts a request-scoped AI provider/model/API key, optional compatible API base URL, GitHub read token, GitHub write token, and optional shared DIS API key. Values are kept in this browser tab's `sessionStorage`, sent as request headers, and used for that request only; they are not stored in the DIS database or returned by any API.
 - GitHub read tokens are used for private repository inspection and source retrieval. GitHub write tokens are used only by the explicitly approved branch/commit/PR operation. Prefer fine-grained tokens scoped to the target repository.
-- `DIS_REPOSITORY_INSPECTION_API_KEY` remains an optional server-level access gate when configured. `DIS_PROPOSAL_SIGNING_KEY` remains server-only and is never supplied from the browser.
+- Configure `DIS_REPOSITORY_INSPECTION_API_KEY` on the server and enter its value in Settings when using protected AI/repository/improvement endpoints. `DIS_PROPOSAL_SIGNING_KEY` remains server-only and is never supplied from the browser.
 - Browser-stored credentials are accessible to scripts running in the same origin. Use HTTPS, trusted dependencies, avoid shared devices, and clear settings when finished. Multi-user public hosting requires authenticated user accounts and an encrypted per-user credential vault; these settings are per-browser-session, not account identity.
 
 The dashboard and API are served from the same origin; no separate frontend build or Node.js installation is required.
