@@ -61,7 +61,7 @@ class LLMProvider:
     def _validate_provider_endpoint(self) -> None:
         """Prevent a known provider profile from silently targeting another provider."""
         host = (urlparse(self.base_url).hostname or "").lower() if self.base_url else ""
-        if not host:
+        if not host or self.provider == "openai-compatible":
             return
         for provider, official_host in _OFFICIAL_PROVIDER_HOSTS.items():
             if host == official_host and self.provider != provider:
