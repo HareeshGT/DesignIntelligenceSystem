@@ -98,6 +98,14 @@ The visual inspector accepts a public application URL and opens it in a headless
 - Screenshots are returned as base64 JPEGs in the response and are not persisted by the server.
 - When the user explicitly enables AI screenshot analysis, screenshots are sent to the configured vision-capable provider for observations about visual hierarchy, spacing, typography, color and component consistency. Optional route exploration follows same-origin anchor links only, with a configurable hard limit. The score is heuristic, not a WCAG certification or objective design-quality guarantee.
 
+## Visual comparison and approved code improvements
+
+- `POST /api/v1/visual/compare` inspects baseline and candidate URLs at desktop, tablet and mobile sizes, calculates pixel similarity and changed-pixel ratios, and compares deterministic finding titles. Pixel similarity measures change, not quality.
+- `POST /api/v1/improvements/propose` reads up to four existing frontend files from a GitHub branch and asks the configured model for replacement contents tied to supplied visual findings. It enforces source path and file-size limits, redacts likely credentials, signs the proposal and returns a reviewable unified diff. Proposing never writes to GitHub.
+- `POST /api/v1/improvements/apply` requires a signed, unexpired proposal and explicit `approval: true`. It uses `DIS_GITHUB_WRITE_TOKEN` to create a separate branch, commit approved files and open a pull request. It never merges the pull request.
+- Configure `DIS_GITHUB_WRITE_TOKEN` with fine-grained repository permissions for **Contents: read/write** and **Pull requests: read/write**. Keep `DIS_GITHUB_TOKEN` read-only for inspection. Never expose either token to the browser.
+- The dashboard lets the user review the diff and check an explicit approval box before the PR is created. The code proposal is limited to selected existing frontend files; it does not install dependencies, run the target repository, or deploy it.
+
 ## Browser dashboard
 
 DIS includes a browser-based workspace served by the FastAPI application:
@@ -150,7 +158,10 @@ The container runs as a non-root user, includes a health check, and stores SQLit
 - `GET /api/v1/agents` — registered roles
 - `GET /api/v1/provider` — safe provider configuration status (never returns the key)
 - `POST /api/v1/design/runs` — dynamically select specialists and orchestrate a design brief
-- `POST /api/v1/visual/inspect` — capture and audit a public web page at three viewport sizes\n- `POST /api/v1/visual/compare` — compare before/after screenshots and deterministic findings\n- `POST /api/v1/improvements/propose` — generate a signed, reviewable frontend patch proposal\n- `POST /api/v1/improvements/apply` — create a PR from an approved proposal
+- `POST /api/v1/visual/inspect` — capture and audit a public web page at three viewport sizes
+- `POST /api/v1/visual/compare` — compare before/after screenshots and deterministic findings
+- `POST /api/v1/improvements/propose` — generate a signed, reviewable frontend patch proposal
+- `POST /api/v1/improvements/apply` — create a PR from an approved proposal
 - `POST /api/v1/permissions/evaluate` — evaluate an action against autonomy policy
 
 Example:
