@@ -64,6 +64,27 @@ DIS_LLM_MODEL=your-model-id
 
 Keep `.env` out of version control. Never place API keys in source code, requests, or logs.
 
+## Read-only GitHub repository inspection
+
+DIS can now inspect a GitHub repository without cloning it or executing its code. The first adapter is intentionally read-only and framework-agnostic.
+
+- Public repositories work without a GitHub token, subject to GitHub's anonymous API rate limit.
+- For private repositories or higher API limits, set `DIS_GITHUB_TOKEN` in the server environment using a least-privilege token with repository Contents: read access.
+- DIS inventories the repository tree, detects common stacks and framework signals, identifies likely entry points/routes/components/styles/design-system files, and reports declared test/lint/build commands.
+- It samples a bounded number of files and limits bytes read. Likely embedded credentials are redacted before sampled text is sent to the configured LLM.
+- It never executes project code, installs dependencies, runs tests, or claims visual verification. The report includes limitations and explicit “not executed” labels.
+- The endpoint accepts `owner/name` or a `https://github.com/owner/name` URL. An optional `ref` selects a branch, tag, or commit.
+
+Example:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/repositories/inspect \
+  -H 'Content-Type: application/json' \
+  -d '{"repository":"HareeshGT/KubeDock","include_file_samples":true}'
+```
+
+The response contains detected stacks/frameworks, entry points, route/page paths, component/style paths, design-system evidence, declared test commands, sampled-file evidence, an architecture summary, and limitations. It does not return source file contents.
+
 ## API
 
 - `GET /health` — service health
