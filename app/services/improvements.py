@@ -23,7 +23,7 @@ MAX_SOURCE_BYTES = 32_000
 MAX_DISCOVERY_FILES = 120
 MAX_PROPOSAL_BYTES = 32_000
 FORBIDDEN_PATH_PARTS = {"auth", "database", "db", "infra", "middleware", "migrations", "scripts", "security", "test", "tests"}
-FORBIDDEN_SOURCE_NAMES = {"api.ts", "api.js", "auth.ts", "auth.js", "server.ts", "server.js", "middleware.ts", "middleware.js", "package.swift", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "webpack.config.js", "webpack.config.ts", "next.config.js", "next.config.ts", "vite.config.js", "vite.config.ts", "metro.config.js", "electron.vite.config.ts"}
+FORBIDDEN_SOURCE_NAMES = {"auth.ts", "auth.js", "middleware.ts", "middleware.js", "package.swift", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "webpack.config.js", "webpack.config.ts", "next.config.js", "next.config.ts", "vite.config.js", "vite.config.ts", "metro.config.js", "electron.vite.config.ts"}
 SECRET_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*['\"]?\s*([:=])\s*['\"]?([A-Za-z0-9_./+=:-]{12,})"),
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
