@@ -38,7 +38,7 @@ def compare_visuals(
 ):
     """Compare before/after public application screenshots and deterministic findings."""
     expected_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip()
-    credentials_configured = bool(os.getenv("DIS_GITHUB_TOKEN", "").strip() or os.getenv("DIS_LLM_API_KEY", "").strip())
+    credentials_configured = bool(os.getenv("DIS_GITHUB_TOKEN", "").strip() or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip() or os.getenv("DIS_LLM_API_KEY", "").strip())
     if credentials_configured and not expected_key:
         raise HTTPException(status_code=503, detail="Set DIS_REPOSITORY_INSPECTION_API_KEY.")
     if expected_key and (not api_key or not hmac.compare_digest(api_key, expected_key)):
