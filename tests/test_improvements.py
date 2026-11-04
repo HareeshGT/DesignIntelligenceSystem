@@ -23,6 +23,8 @@ def test_only_existing_frontend_source_paths_are_allowed():
     assert not _safe_source_path("Package.swift")
     assert not _safe_source_path("build.gradle.kts")
     assert not _safe_source_path("src/middleware.ts")
+    assert not _safe_source_path("src/middleware/index.ts")
+    assert not _safe_source_path("src/api.client.ts")
     assert not _safe_source_path("next.config.ts")
 
 def test_repository_identifier_parser_rejects_untrusted_host():
