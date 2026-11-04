@@ -53,7 +53,9 @@ class Orchestrator:
     def build_plan(self, request: DesignRequest) -> list[AgentTask]:
         tasks: list[AgentTask] = []
         previous_id = None
-        for role in self._select_roles(request):
+        selected_roles = self._select_roles(request)
+        planning_mode = self.last_planning_mode
+        for role in selected_roles:
             task = AgentTask(
                 role=role,
                 objective=f"Analyze the brief from the {role.value.replace('_', ' ')} perspective.",
@@ -80,7 +82,7 @@ class Orchestrator:
             role=AgentRole.DIRECTOR,
             objective="Consolidate selected specialist work and set next actions.",
             context={"project_id": request.project_id,
-                     "planning_mode": self.last_planning_mode},
+                     "planning_mode": planning_mode},
             dependencies=[task.task_id for task in plan],
         )
         director_result = self.registry[AgentRole.DIRECTOR].execute(director_task, request, results)
