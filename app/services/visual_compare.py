@@ -40,7 +40,8 @@ class VisualComparator:
                 difference = ImageChops.difference(image_a, image_b)
                 mean_error = sum(ImageStat.Stat(difference).mean) / 3
                 similarity = round(max(0.0, 100.0 * (1.0 - mean_error / 255.0)), 2)
-                changed_pixels = sum(difference.convert("L").histogram()[19:])
+                histogram = difference.convert("L").histogram()
+                changed_pixels = sum(histogram[19:])
                 total_pixels = image_a.width * image_a.height
                 comparisons.append({
                     "viewport": name, "width": image_a.width, "height": image_a.height,
