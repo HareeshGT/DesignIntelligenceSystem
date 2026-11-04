@@ -4,7 +4,7 @@ import base64
 import os
 import re
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 
@@ -45,6 +45,12 @@ MANIFEST_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 
 class RepositoryInspectionError(RuntimeError):
     """Safe, user-facing error while inspecting a repository."""
+
+
+def _redact_text(text: str) -> str:
+    for pattern in SECRET_PATTERNS:
+        text = pattern.sub("[REDACTED]", text)
+    return text
 
 
 def _parse_repository(value: str) -> tuple[str, str]:
@@ -137,7 +143,7 @@ class GitHubRepositoryInspector:
         base = f"{API_ROOT}/repos/{owner}/{name}"
         metadata = self._request(base)
         resolved_ref = ref or metadata.get("default_branch") or "main"
-        branch_data = self._request(f"{base}/git/trees/{resolved_ref}", {"recursive": "1"})
+        branch_data = self._request(f"{base}/git/trees/{quote(resolved_ref, safe='')}", {"recursive": "1"})
         entries = branch_data.get("tree", [])
         if not isinstance(entries, list):
             raise RepositoryInspectionError("GitHub returned an invalid repository tree.")
@@ -174,9 +180,7 @@ class GitHubRepositoryInspector:
             total_bytes += len(clipped)
             text = clipped.decode("utf-8", errors="replace")
             # Redact likely embedded credentials before any model prompt is assembled.
-            for pattern in SECRET_PATTERNS:
-                text = pattern.sub("[REDACTED]", text)
-            contents[path] = text
+            contents[path] = _redact_text(text)
             evidence.append(RepositoryFileEvidence(
                 path=path, category=_category(path), bytes_read=len(clipped),
                 truncated=len(raw) > len(clipped),
