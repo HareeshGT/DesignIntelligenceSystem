@@ -58,7 +58,7 @@ class Orchestrator:
                 role=role,
                 objective=f"Analyze the brief from the {role.value.replace('_', ' ')} perspective.",
                 context={"project_id": request.project_id,
-                         "planning_mode": self.last_planning_mode},
+                         "planning_mode": planning_mode},
                 dependencies=[previous_id] if previous_id else [],
             )
             tasks.append(task)
@@ -67,6 +67,8 @@ class Orchestrator:
 
     def run(self, request: DesignRequest) -> DesignRun:
         plan = self.build_plan(request)
+        # Keep per-run metadata local so concurrent API requests cannot overwrite it.
+        planning_mode = plan[0].context.get("planning_mode", "deterministic")
         results = []
         for task in plan:
             agent = self.registry[task.role]
@@ -82,14 +84,14 @@ class Orchestrator:
             dependencies=[task.task_id for task in plan],
         )
         director_result = self.registry[AgentRole.DIRECTOR].execute(director_task, request, results)
-        director_result.deliverables["planning_mode"] = self.last_planning_mode
+        director_result.deliverables["planning_mode"] = planning_mode
         director_result.deliverables["selected_specialists"] = [task.role.value for task in plan]
         results.append(director_result)
         quality = evaluate_quality()
         if self.memory:
             self.memory.append(request.project_id, "design_run", {
                 "brief": request.brief, "result_count": len(results), "quality": quality,
-                "planning_mode": self.last_planning_mode,
+                "planning_mode": planning_mode,
                 "selected_specialists": [task.role.value for task in plan],
             })
         return DesignRun(
