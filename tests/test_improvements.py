@@ -145,3 +145,24 @@ def test_proposal_rejects_missing_consent_before_github_reads(monkeypatch):
                 "recommendation": "Increase spacing.",
             }],
         )
+
+
+def test_client_api_key_cannot_be_reused_as_proposal_signing_key(monkeypatch):
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "browser-client-secret")
+    monkeypatch.delenv("DIS_PROPOSAL_SIGNING_KEY", raising=False)
+
+    class EnabledProvider:
+        enabled = True
+
+    request = ImprovementProposalRequest(
+        repository="owner/repo",
+        target_files=["src/App.tsx"],
+        findings=[{
+            "category": "visual", "severity": "medium", "title": "Improve spacing",
+            "description": "Cards appear crowded.", "evidence": "Visible card gap is zero.",
+            "recommendation": "Increase the card gap.",
+        }],
+        source_sharing_consent=True,
+    )
+    with pytest.raises(ImprovementError, match="DIS_PROPOSAL_SIGNING_KEY"):
+        ImprovementService(llm=EnabledProvider()).propose(request)
