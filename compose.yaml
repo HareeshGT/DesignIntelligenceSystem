@@ -9,8 +9,7 @@ services:
     ports:
       - "${DIS_PORT:-8000}:8000"
     env_file:
-      - path: .env
-        required: false
+      - .env
     environment:
       DIS_DATABASE_PATH: /data/design_intelligence.db
     volumes:
