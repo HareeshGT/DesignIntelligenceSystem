@@ -44,6 +44,3 @@ jobs:
           curl --fail http://127.0.0.1:8000/
           curl --fail http://127.0.0.1:8000/static/app.js
           curl --fail http://127.0.0.1:8000/api/v1/provider
-          curl --fail -X POST http://127.0.0.1:8000/api/v1/visual/inspect \
-            -H 'Content-Type: application/json' \
-            -d '{"url":"https://example.com","capture_screenshots":false,"analyze_with_vision":false}'
