@@ -5,7 +5,8 @@ import io
 
 from PIL import Image, ImageChops, ImageStat
 
-from app.core.visual_models import VisualComparisonRequest, VisualInspectionRequest
+from app.core.visual_comparison_models import VisualComparisonRequest
+from app.core.visual_models import VisualInspectionRequest
 from app.services.visual_inspector import VisualInspector
 
 
