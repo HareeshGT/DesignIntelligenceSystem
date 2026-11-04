@@ -157,7 +157,7 @@ class ImprovementService:
         payload = {"repository": f"{owner}/{name}", "ref": ref, "branch_name": requested_branch, "base_sha": commit_sha, "summary": str(result.get("summary", "UI improvement proposal"))[:1200], "changes": changes, "created_at": int(time.time())}
         encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
         signature = hmac.new(self.signing_key, encoded.encode(), hashlib.sha256).hexdigest()
-        return {"summary": payload["summary"], "repository": payload["repository"], "ref": ref, "branch_name": requested_branch, "files": [{"path": item["path"], "reason": item["reason"]} for item in changes], "diff": "".join(diff_parts), "proposal_token": encoded + "." + signature, "expires_in_seconds": 1800, "approval_required": True, "branch_name": requested_branch, "limitations": ["Proposal is based on supplied findings and bounded source files only.", "No code changes until the separate approval/apply endpoint is called."]}
+        return {"summary": payload["summary"], "repository": payload["repository"], "ref": ref, "branch_name": requested_branch, "files": [{"path": item["path"], "reason": item["reason"]} for item in changes], "diff": "".join(diff_parts), "proposal_token": encoded + "." + signature, "expires_in_seconds": 1800, "approval_required": True, "limitations": ["Proposal is based on supplied findings and bounded source files only.", "No code changes until the separate approval/apply endpoint is called."]}
 
     def _consume_proposal(self, encoded: str) -> None:
         digest = hashlib.sha256(encoded.encode()).hexdigest()
