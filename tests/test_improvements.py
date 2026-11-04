@@ -43,7 +43,7 @@ def test_signed_approval_token_can_only_be_applied_once(monkeypatch, tmp_path):
 
     monkeypatch.setenv("DIS_GITHUB_WRITE_TOKEN", "write-token")
     monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "client-api-key")
-    monkeypatch.setenv("DIS_PROPOSAL_SIGNING_KEY", "signing-key")
+    monkeypatch.setenv("DIS_PROPOSAL_SIGNING_KEY", "proposal-signing-secret-with-32-plus-bytes")
     monkeypatch.setenv("DIS_DATABASE_PATH", str(tmp_path / "dis.sqlite"))
     payload = {
         "repository": "owner/repo",
@@ -54,7 +54,7 @@ def test_signed_approval_token_can_only_be_applied_once(monkeypatch, tmp_path):
         "created_at": int(time.time()),
     }
     encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
-    signature = hmac.new(b"signing-key", encoded.encode(), hashlib.sha256).hexdigest()
+    signature = hmac.new(b"proposal-signing-secret-with-32-plus-bytes", encoded.encode(), hashlib.sha256).hexdigest()
     token = encoded + "." + signature
     service = ImprovementService()
     calls = []
@@ -166,3 +166,11 @@ def test_client_api_key_cannot_be_reused_as_proposal_signing_key(monkeypatch):
     )
     with pytest.raises(ImprovementError, match="DIS_PROPOSAL_SIGNING_KEY"):
         ImprovementService(llm=EnabledProvider()).propose(request)
+
+
+def test_proposal_signing_secret_cannot_equal_client_api_key(monkeypatch):
+    shared_secret = "same-secret-used-for-client-and-signing"
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", shared_secret)
+    monkeypatch.setenv("DIS_PROPOSAL_SIGNING_KEY", shared_secret)
+    with pytest.raises(ImprovementError, match="must be different"):
+        ImprovementService()
