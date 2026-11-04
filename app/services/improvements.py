@@ -172,16 +172,22 @@ class ImprovementService:
             raise ImprovementError("Source file not found in repository: " + ", ".join(sorted(missing)))
         candidates = candidates[:MAX_DISCOVERY_FILES]
         inspected = []
+        fetched_count = 0
+        decode_skipped = 0
+        oversized_skipped = 0
         for path in candidates:
             data = self._request("GET", f"{base}/contents/{quote(path, safe='/')}", params={"ref": ref})
             if data.get("type") != "file" or data.get("encoding") != "base64":
                 continue
+            fetched_count += 1
             try:
                 raw = base64.b64decode(data["content"], validate=True)
                 source = raw.decode("utf-8")
             except (ValueError, UnicodeDecodeError):
+                decode_skipped += 1
                 continue
             if len(raw) > MAX_SOURCE_BYTES:
+                oversized_skipped += 1
                 continue
             score = _ui_source_score(path, source)
             if score:
@@ -189,7 +195,15 @@ class ImprovementService:
         inspected.sort(key=lambda item: (-item[0], item[1]))
         sources = [{"path": path, "sha": sha, "content": content} for _, path, sha, content in inspected[:4]]
         if not sources:
-            raise ImprovementError("No UI source files were identified in the selected paths. Discovery inspects file contents and UI responsibilities, including Python page renderers and UI-facing routes.")
+            sample = ", ".join(candidates[:8]) or "(no eligible source paths matched the selected scope)"
+            raise ImprovementError(
+                "No UI source files were identified. "
+                f"ref={ref!r}; scopes={scopes!r}; matched_candidates={len(candidates)}; "
+                f"fetched_files={fetched_count}; decode_skipped={decode_skipped}; "
+                f"oversized_skipped={oversized_skipped}; inspected_paths={sample}. "
+                "If matched_candidates is zero, check the selected repository/ref and path scope. "
+                "If files were fetched but none scored, the content classifier needs another UI pattern."
+            )
         prompt = {"repository": f"{owner}/{name}", "ref": ref, "design_brief": request.design_brief, "visual_summary": request.visual_summary, "findings": [finding.model_dump() for finding in request.findings[:20]], "source_files": sources, "task": "Implement the user's design brief in the supplied UI files. Use specialist design context and evidence-backed findings as guidance. Preserve existing behavior, conventions, accessibility, responsiveness, and design-system consistency. Return complete replacement contents for changed files only."}
         try:
             result = self.llm.complete_json(
