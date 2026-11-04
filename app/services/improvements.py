@@ -49,7 +49,7 @@ def _repository_parts(value: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 def _safe_source_path(path: str) -> bool:
-    if not path or path.startswith("/") or ".." in path.split("/") or path.startswith("."):
+    if not path or "\\" in path or path.startswith("/") or ".." in path.split("/") or path.startswith("."):
         return False
     parts = [part.lower() for part in path.split("/")]
     filename = parts[-1]
