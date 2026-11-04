@@ -341,7 +341,7 @@ async function inspectVisual(event) {
       method:"POST", headers:apiHeaders(),
       body:JSON.stringify({
         url:$("visual-url").value.trim(), capture_screenshots:true,
-        crawl_internal_routes:$("crawl-routes").checked, max_routes:4, analyze_with_vision:true
+        crawl_internal_routes:$("crawl-routes").checked, max_routes:4, analyze_with_vision:$("vision-analysis").checked
       })
     });
     const body = await response.json().catch(() => ({}));
