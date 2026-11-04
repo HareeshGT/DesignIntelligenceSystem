@@ -101,6 +101,9 @@ class LLMProvider:
         if text.startswith("```"):
             text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
         try:
-            return json.loads(text)
+            parsed = json.loads(text)
         except json.JSONDecodeError as exc:
             raise ProviderError("Model response was not valid JSON") from exc
+        if not isinstance(parsed, dict):
+            raise ProviderError("Model response must be a JSON object")
+        return parsed
