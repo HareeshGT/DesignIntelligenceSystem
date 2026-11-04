@@ -46,6 +46,8 @@ class VisualComparator:
                     "viewport": name, "width": image_a.width, "height": image_a.height,
                     "pixel_similarity_percent": similarity,
                     "changed_pixel_percent": round(100.0 * changed_pixels / total_pixels, 2),
+                    "baseline_screenshot_base64": left.screenshot_base64,
+                    "candidate_screenshot_base64": right.screenshot_base64,
                 })
             except (ValueError, OSError) as exc:
                 raise VisualComparisonError("Could not decode screenshots for visual comparison.") from exc
