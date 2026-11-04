@@ -92,8 +92,13 @@
         <div class="page-heading simple-heading"><div><div class="eyebrow">VISUAL INTELLIGENCE <span class="eyebrow-line"></span></div><h1>Visual <em>inspection.</em></h1><p class="lede">Open a public web application in a real browser. DIS captures desktop, tablet and mobile views and audits observable layout and accessibility signals.</p></div></div>
         <div class="panel visual-form-panel">
           <form id="visual-form">
-            <label for="visual-url">Public application URL</label>
+            <label for="visual-url">Deployed application / preview URL</label>
             <div class="input-wrap"><span>↗</span><input id="visual-url" name="url" type="url" placeholder="https://your-app.example.com" autocomplete="url" required></div>
+            <p class="privacy-caption">The repository must already have a public preview URL. DIS does not yet execute or build arbitrary repository code.</p>
+            <label for="visual-repository">GitHub repository (optional, links source analysis to this visual audit)</label>
+            <input id="visual-repository" type="text" placeholder="owner/repository">
+            <label for="visual-ref">Git branch / ref (optional)</label>
+            <input id="visual-ref" type="text" placeholder="main">
             <div class="check-row"><input type="checkbox" id="crawl-routes"><label for="crawl-routes">Explore up to four same-origin linked pages (GET navigation only)</label></div>
             <div class="check-row"><input type="checkbox" id="vision-analysis"><label for="vision-analysis">Enable AI screenshot analysis (screenshots are sent to your configured model provider)</label></div>
             <div class="security-note"><span>◇</span><p><b>Read-only browser inspection.</b><br>DIS does not log in, submit forms or click controls. Local/private network targets and unsafe route patterns are blocked.</p></div>
