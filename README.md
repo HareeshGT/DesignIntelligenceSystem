@@ -51,9 +51,11 @@ DIS_LLM_MODEL=gpt-4o-mini
 Supported provider values:
 - `openai` — OpenAI API (default base URL: `https://api.openai.com/v1`)
 - `anthropic` — Anthropic Messages API
-- `groq`, `gemini`, `mistral`, `openrouter`, `openai-compatible` — OpenAI-compatible chat completions API
+- `mistral` — Mistral chat completions API (default base URL: `https://api.mistral.ai/v1`)
+- `gemini` — Google Gemini through its OpenAI-compatible endpoint (default base URL: `https://generativelanguage.googleapis.com/v1beta/openai`)
+- `groq`, `openrouter`, `openai-compatible` — other OpenAI-compatible chat completions APIs
 
-For compatible providers, set `DIS_LLM_BASE_URL` to the provider's OpenAI-compatible API base URL. Example for Groq:
+Mistral and Gemini have built-in endpoint defaults. In browser Settings, each provider has its own session-scoped model ID, API key and optional endpoint profile; switching providers preserves the other profiles. The selected provider powers the existing DIS Design Director and specialist-agent team. For other compatible providers, set `DIS_LLM_BASE_URL` to the provider's OpenAI-compatible API base URL. Example for Groq:
 
 ```dotenv
 DIS_LLM_PROVIDER=groq
