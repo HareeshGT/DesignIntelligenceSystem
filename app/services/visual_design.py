@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from app.core.visual_models import VisualFinding
@@ -10,7 +11,13 @@ class VisualDesignAnalyzer:
     """Multimodal screenshot analysis with strict evidence-oriented output handling."""
 
     def __init__(self, provider: LLMProvider | None = None) -> None:
-        self.provider = provider or LLMProvider(timeout=45.0)
+        self.provider = provider or LLMProvider(
+            provider=os.getenv("DIS_VISION_LLM_PROVIDER") or os.getenv("DIS_LLM_PROVIDER"),
+            api_key=os.getenv("DIS_VISION_LLM_API_KEY") or os.getenv("DIS_LLM_API_KEY", ""),
+            model=os.getenv("DIS_VISION_LLM_MODEL") or os.getenv("DIS_LLM_MODEL", ""),
+            base_url=os.getenv("DIS_VISION_LLM_BASE_URL") or os.getenv("DIS_LLM_BASE_URL"),
+            timeout=45.0,
+        )
 
     def analyze(self, screenshots: list[dict[str, str]]) -> dict[str, Any]:
         if not self.provider.enabled:
