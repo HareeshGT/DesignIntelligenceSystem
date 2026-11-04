@@ -95,6 +95,7 @@
             <label for="visual-url">Public application URL</label>
             <div class="input-wrap"><span>↗</span><input id="visual-url" name="url" type="url" placeholder="https://your-app.example.com" autocomplete="url" required></div>
             <div class="check-row"><input type="checkbox" id="crawl-routes"><label for="crawl-routes">Explore up to four same-origin linked pages (GET navigation only)</label></div>
+            <div class="check-row"><input type="checkbox" id="vision-analysis"><label for="vision-analysis">Enable AI screenshot analysis (screenshots are sent to your configured model provider)</label></div>
             <div class="security-note"><span>◇</span><p><b>Read-only browser inspection.</b><br>DIS does not log in, submit forms or click controls. Local/private network targets and unsafe route patterns are blocked.</p></div>
             <button class="primary-button submit-button" id="visual-submit" type="submit"><span class="button-label">Inspect application UI</span><span class="button-arrow">→</span></button>
             <p class="form-error" id="visual-error" role="alert"></p>
