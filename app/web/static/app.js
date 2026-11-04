@@ -2,6 +2,7 @@ const API_BASE = "";
 const $ = (id) => document.getElementById(id);
 const HISTORY_KEY = "dis.inspection.history.v1";
 const KEY_STORAGE = "dis.inspection.api_key";
+const CREDENTIAL_FIELDS = {provider:"dis.user.provider",model:"dis.user.model",baseUrl:"dis.user.base_url",llmKey:"dis.user.llm_key",githubRead:"dis.user.github_read",githubWrite:"dis.user.github_write"};
 let latestVisualReport = null;
 let latestRepositoryReport = null;
 let latestProposalToken = null;
@@ -9,6 +10,15 @@ function apiHeaders() {
   const headers = {"Content-Type":"application/json"};
   const key = sessionStorage.getItem(KEY_STORAGE);
   if (key) headers["X-DIS-API-Key"] = key;
+  const values = Object.fromEntries(Object.entries(CREDENTIAL_FIELDS).map(([name, storage]) => [name, sessionStorage.getItem(storage) || ""]));
+  if (values.llmKey) {
+    headers["X-DIS-LLM-API-Key"] = values.llmKey;
+    if (values.provider) headers["X-DIS-LLM-Provider"] = values.provider;
+    if (values.model) headers["X-DIS-LLM-Model"] = values.model;
+    if (values.baseUrl) headers["X-DIS-LLM-Base-URL"] = values.baseUrl;
+  }
+  if (values.githubRead) headers["X-DIS-GITHUB-READ-TOKEN"] = values.githubRead;
+  if (values.githubWrite) headers["X-DIS-GITHUB-WRITE-TOKEN"] = values.githubWrite;
   return headers;
 }
 
@@ -193,9 +203,7 @@ async function inspect(event) {
   try {
     const payload = {repository, include_file_samples: $("sample-files").checked};
     if (ref) payload.ref = ref;
-    const headers = {"Content-Type":"application/json"};
-    const key = sessionStorage.getItem(KEY_STORAGE);
-    if (key) headers["X-DIS-API-Key"] = key;
+    const headers = apiHeaders();
     const response = await fetch(API_BASE + "/api/v1/repositories/inspect", {
       method:"POST", headers, body:JSON.stringify(payload)
     });
@@ -238,7 +246,7 @@ async function loadSystemStatus() {
     $("stat-health-note").textContent = "Unable to reach DIS API";
   }
   try {
-    const response = await fetch("/api/v1/provider");
+    const response = await fetch("/api/v1/provider", {headers:apiHeaders()});
     const data = await response.json();
     $("stat-provider").textContent = data.configured ? data.provider : "Deterministic";
     $("stat-model").textContent = data.configured ? (data.model || "Model configured") : "LLM provider not configured";
@@ -249,19 +257,27 @@ async function loadSystemStatus() {
 }
 function openSettings() {
   $("api-key-input").value = sessionStorage.getItem(KEY_STORAGE) || "";
+  $("llm-provider").value = sessionStorage.getItem(CREDENTIAL_FIELDS.provider) || "openai";
+  $("llm-model").value = sessionStorage.getItem(CREDENTIAL_FIELDS.model) || "";
+  $("llm-base-url").value = sessionStorage.getItem(CREDENTIAL_FIELDS.baseUrl) || "";
+  $("llm-api-key").value = sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey) || "";
+  $("github-read-token").value = sessionStorage.getItem(CREDENTIAL_FIELDS.githubRead) || "";
+  $("github-write-token").value = sessionStorage.getItem(CREDENTIAL_FIELDS.githubWrite) || "";
   $("settings-dialog").showModal();
 }
 $("settings-open").addEventListener("click", openSettings);
 $("settings-open-secondary").addEventListener("click", openSettings);
 $("save-key").addEventListener("click", () => {
   const key = $("api-key-input").value.trim();
-  if (key) sessionStorage.setItem(KEY_STORAGE, key);
-  else sessionStorage.removeItem(KEY_STORAGE);
-  $("settings-dialog").close();
+  if (key) sessionStorage.setItem(KEY_STORAGE, key); else sessionStorage.removeItem(KEY_STORAGE);
+  const values = {provider:$("llm-provider").value,model:$("llm-model").value.trim(),baseUrl:$("llm-base-url").value.trim(),llmKey:$("llm-api-key").value.trim(),githubRead:$("github-read-token").value.trim(),githubWrite:$("github-write-token").value.trim()};
+  Object.entries(values).forEach(([name,value]) => {const storage=CREDENTIAL_FIELDS[name];if(value)sessionStorage.setItem(storage,value);else sessionStorage.removeItem(storage);});
+  $("settings-dialog").close();loadSystemStatus();
 });
 $("clear-key").addEventListener("click", () => {
-  sessionStorage.removeItem(KEY_STORAGE);
-  $("api-key-input").value = "";
+  sessionStorage.removeItem(KEY_STORAGE);Object.values(CREDENTIAL_FIELDS).forEach(key=>sessionStorage.removeItem(key));
+  ["api-key-input","llm-api-key","github-read-token","github-write-token"].forEach(id=>$(id).value="");
+  ["llm-model","llm-base-url"].forEach(id=>$(id).value="");
 });
 $("clear-history").addEventListener("click", () => {
   if (confirm("Clear inspection history saved in this browser?")) {

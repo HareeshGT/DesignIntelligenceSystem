@@ -119,7 +119,10 @@ DIS includes a browser-based workspace served by the FastAPI application:
 - **UI improvement proposal** generates a bounded frontend patch for selected GitHub files, displays the diff, and opens a PR only after explicit approval.
 - **Architecture report** displays detected stacks/frameworks, entry points, routes, components/styles, design-system signals, declared commands, sampled file evidence, and limitations.
 - **Inspection history** is stored in the current browser's local storage. It can be cleared from the History page.
-- If the server requires `DIS_REPOSITORY_INSPECTION_API_KEY`, enter that shared key in dashboard settings. It is stored in session storage for the current browser tab only. Do not enter a GitHub personal access token in the browser; configure `DIS_GITHUB_TOKEN` on the server.
+- Dashboard Settings accepts a request-scoped AI provider/model/API key, optional compatible API base URL, GitHub read token, GitHub write token, and optional shared DIS API key. Values are kept in this browser tab's `sessionStorage`, sent as request headers, and used for that request only; they are not stored in the DIS database or returned by any API.
+- GitHub read tokens are used for private repository inspection and source retrieval. GitHub write tokens are used only by the explicitly approved branch/commit/PR operation. Prefer fine-grained tokens scoped to the target repository.
+- Configure `DIS_REPOSITORY_INSPECTION_API_KEY` on the server and enter its value in Settings when using protected AI/repository/improvement endpoints. `DIS_PROPOSAL_SIGNING_KEY` remains server-only and is never supplied from the browser.
+- Browser-stored credentials are accessible to scripts running in the same origin. Use HTTPS, trusted dependencies, avoid shared devices, and clear settings when finished. Multi-user public hosting requires authenticated user accounts and an encrypted per-user credential vault; these settings are per-browser-session, not account identity.
 
 The dashboard and API are served from the same origin; no separate frontend build or Node.js installation is required.
 

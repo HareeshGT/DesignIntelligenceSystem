@@ -181,6 +181,9 @@ def _score(findings: list[VisualFinding]) -> tuple[int, str]:
 class VisualInspector:
     """Captures public web pages and audits observable DOM/layout signals."""
 
+    def __init__(self, provider=None):
+        self.provider = provider
+
     def inspect(self, request: VisualInspectionRequest) -> VisualInspectionResponse:
         target = str(request.url)
         _validate_public_url(target)
@@ -317,7 +320,7 @@ class VisualInspector:
             ]
             if screenshots:
                 try:
-                    visual_result = VisualDesignAnalyzer().analyze(screenshots[:3])
+                    visual_result = VisualDesignAnalyzer(provider=self.provider).analyze(screenshots[:3])
                     visual_summary = visual_result["summary"]
                     findings.extend(visual_result["findings"])
                     design_system_signals = visual_result["design_system"]
