@@ -81,7 +81,7 @@ def test_signed_approval_token_can_only_be_applied_once(monkeypatch, tmp_path):
     assert result["number"] == 42
     with pytest.raises(ImprovementError, match="already been used"):
         service.apply(token, True)
-    assert len(calls) == 4
+    assert len(calls) == 5
 
 
 def test_secret_redaction_covers_tokens_and_private_keys():
