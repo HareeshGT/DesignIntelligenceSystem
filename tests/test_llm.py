@@ -139,3 +139,39 @@ def test_provider_has_dedicated_default_endpoint(provider, expected_base):
     configured = LLMProvider(provider=provider, api_key="test", model="test-model", base_url="")
     assert configured.base_url == expected_base
     assert configured.enabled
+
+def test_provider_http_errors_expose_safe_diagnostic_and_redact_api_key(monkeypatch):
+    import httpx
+
+    secret = "test-provider-secret-key"
+    response = httpx.Response(
+        400,
+        json={"error": {"message": f"Invalid model request for key {secret}"}},
+        request=httpx.Request("POST", "https://provider.example/v1/chat/completions"),
+    )
+    monkeypatch.setattr("app.services.llm.httpx.post", lambda *args, **kwargs: response)
+    provider = LLMProvider(
+        provider="gemini", api_key=secret, model="test-model",
+        base_url="https://provider.example/v1",
+    )
+
+    with pytest.raises(ProviderError) as error:
+        provider.complete_json("system", "prompt")
+
+    assert "HTTP 400" in str(error.value)
+    assert "Invalid model request" in str(error.value)
+    assert secret not in str(error.value)
+
+
+def test_provider_timeout_has_actionable_error(monkeypatch):
+    import httpx
+
+    def timeout(*args, **kwargs):
+        raise httpx.TimeoutException("request timed out")
+
+    monkeypatch.setattr("app.services.llm.httpx.post", timeout)
+    provider = LLMProvider(provider="gemini", api_key="test", model="test-model")
+
+    with pytest.raises(ProviderError, match="timed out"):
+        provider.complete_json("system", "prompt")
+
