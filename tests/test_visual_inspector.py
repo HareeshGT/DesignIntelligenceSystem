@@ -38,6 +38,7 @@ def test_request_defaults_to_three_viewports_capture():
     request = VisualInspectionRequest(url="https://example.com")
     assert request.capture_screenshots is True
     assert request.page_timeout_ms == 20000
+    assert request.analyze_with_vision is False
 
 
 def test_detects_horizontal_overflow_and_accessibility_issues():
