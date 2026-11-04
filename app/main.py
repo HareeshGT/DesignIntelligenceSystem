@@ -82,11 +82,18 @@ def create_design_run(request: DesignRequest, api_key: str | None = Header(defau
     """Run specialists with request-scoped user provider credentials."""
     request_provider = request_llm(llm_provider, llm_model, llm_api_key, llm_base_url)
     expected_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip()
-    sensitive_credentials = bool(os.getenv("DIS_GITHUB_TOKEN", "").strip() or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip() or request_provider.enabled)
-    if sensitive_credentials and not expected_key:
-        raise HTTPException(status_code=503, detail="Set DIS_REPOSITORY_INSPECTION_API_KEY before using AI design runs.")
+    # Only server-held credentials require the shared server access key. Credentials
+    # supplied explicitly by this browser request are caller-owned and do not need a
+    # second server secret when the deployment has no server-side credentials.
+    server_credentials = bool(
+        os.getenv("DIS_GITHUB_TOKEN", "").strip()
+        or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip()
+        or os.getenv("DIS_LLM_API_KEY", "").strip()
+    )
+    if server_credentials and not expected_key:
+        raise HTTPException(status_code=503, detail="Server-side credentials are configured but DIS_REPOSITORY_INSPECTION_API_KEY is missing from this running service.")
     if expected_key and (not api_key or not hmac.compare_digest(api_key.encode("utf-8"), expected_key.encode("utf-8"))):
-        raise HTTPException(status_code=401, detail="Invalid or missing DIS API key.")
+        raise HTTPException(status_code=401, detail="Invalid or missing DIS API key. Enter the matching server access key in Settings.")
     return Orchestrator(memory=memory, llm=request_provider).run(request).model_dump(mode="json")
 
 
