@@ -337,7 +337,7 @@ class VisualInspector:
                         for finding in visual_result["findings"]
                     ]
                     analysis_mode = "multimodal_vision_and_deterministic"
-                except (ProviderError, ValueError, TypeError):
+                except (ProviderError, ValueError, TypeError) as exc:
                     vision_limitations.append(
                         "Multimodal visual analysis was unavailable; deterministic checks were used. "
                         f"Provider diagnostic: {str(exc)[:240]}"
