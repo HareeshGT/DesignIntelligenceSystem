@@ -1,0 +1,1 @@
+"""Design Intelligence System application."""
