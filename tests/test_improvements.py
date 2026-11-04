@@ -71,6 +71,8 @@ def test_secret_redaction_covers_tokens_and_private_keys():
     assert "very-long-secret-value-12345" not in redacted
     assert "ghp_abcdefghijklmnopqrstuvwxyz1234567890" not in redacted
     assert redacted.count("[REDACTED]") == 2
+    json_secret = _redact_secrets('{"api_key": "json-secret-token-value-12345"}')
+    assert "json-secret-token-value-12345" not in json_secret
 
 
 def test_public_repository_reads_do_not_require_github_token(monkeypatch):
