@@ -177,8 +177,19 @@
   </div>
 
   <dialog id="settings-dialog" class="settings-dialog">
-    <form method="dialog" class="dialog-head"><div><span class="eyebrow">CONNECTION SETTINGS</span><h2>API access</h2></div><button class="icon-button" aria-label="Close">×</button></form>
-    <div class="dialog-body"><p>Enter the shared inspection key configured on your DIS server. It is kept in this browser tab's session storage and sent only to your DIS API.</p><label for="api-key-input">DIS inspection API key</label><input id="api-key-input" type="password" placeholder="Enter X-DIS-API-Key value" autocomplete="off"><div class="dialog-actions"><button class="text-button" id="clear-key" type="button">Clear key</button><button class="primary-button" id="save-key" type="button">Save for this session</button></div><small class="privacy-caption">Do not enter your GitHub personal access token here. Configure DIS_GITHUB_TOKEN on the server instead.</small></div>
+    <form method="dialog" class="dialog-head"><div><span class="eyebrow">WORKSPACE SETTINGS</span><h2>Your credentials</h2></div><button class="icon-button" aria-label="Close">×</button></form>
+    <div class="dialog-body">
+      <p>Credentials are kept in this browser tab's session storage and sent over HTTPS only to this DIS server. The server uses them for the current request and does not save them to its database.</p>
+      <span class="eyebrow">DIS ACCESS</span><label for="api-key-input">DIS server access key <small>(if your deployment requires one)</small></label><input id="api-key-input" type="password" placeholder="X-DIS-API-Key" autocomplete="off">
+      <span class="eyebrow">AI MODEL</span><label for="llm-provider">Provider</label><select id="llm-provider"><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="openai-compatible">OpenAI-compatible</option><option value="groq">Groq</option><option value="gemini">Gemini (OpenAI-compatible endpoint)</option><option value="mistral">Mistral</option><option value="openrouter">OpenRouter</option></select>
+      <label for="llm-model">Model ID</label><input id="llm-model" type="text" placeholder="e.g. gpt-4.1 or claude-sonnet-4-5" autocomplete="off">
+      <label for="llm-api-key">Model API key</label><input id="llm-api-key" type="password" placeholder="Paste your provider API key" autocomplete="off">
+      <label for="llm-base-url">Custom API base URL <small>(optional)</small></label><input id="llm-base-url" type="url" placeholder="https://api.example.com/v1" autocomplete="off">
+      <span class="eyebrow">GITHUB REPOSITORY ACCESS</span><label for="github-read-token">GitHub token · read access</label><input id="github-read-token" type="password" placeholder="Contents: read" autocomplete="off">
+      <label for="github-write-token">GitHub token · branch and PR write access</label><input id="github-write-token" type="password" placeholder="Contents: read/write; Pull requests: read/write" autocomplete="off">
+      <div class="dialog-actions"><button class="text-button" id="clear-key" type="button">Clear all credentials</button><button class="primary-button" id="save-key" type="button">Save for this session</button></div>
+      <small class="privacy-caption">Use least-privilege tokens. Credentials are not returned by the API. Browser session storage is cleared when this tab's session ends; do not use on shared devices. Keep DIS_PROPOSAL_SIGNING_KEY server-side. For multi-user public hosting, add authenticated accounts and an encrypted per-user vault; these settings are scoped to this browser tab.</small>
+    </div>
   </dialog>
   <script>window.__disInitialHash = location.hash;</script>
   <script src="/static/app.js" defer></script>
