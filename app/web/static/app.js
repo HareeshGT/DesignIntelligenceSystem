@@ -386,6 +386,17 @@ async function compareVersions(event) {
       const row = el("div", "comparison-row");
       row.append(el("b", "", item.viewport), el("span", "", item.pixel_similarity_percent + "% pixel similarity"), el("span", "", item.changed_pixel_percent + "% pixels changed"));
       report.append(row);
+      const pair = el("div", "comparison-images");
+      [["Before", item.baseline_screenshot_base64], ["After", item.candidate_screenshot_base64]].forEach(([label, imageData]) => {
+        const figure = el("figure", "comparison-image");
+        figure.append(el("figcaption", "", label + " · " + item.viewport));
+        const image = document.createElement("img");
+        image.alt = label + " " + item.viewport + " screenshot";
+        image.src = "data:image/jpeg;base64," + imageData;
+        figure.append(image);
+        pair.append(figure);
+      });
+      report.append(pair);
     });
     report.append(el("p", "summary-text", "Finding score change: " + (body.score_delta > 0 ? "+" : "") + body.score_delta));
     const resolved = el("div");
