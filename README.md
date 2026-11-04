@@ -12,7 +12,7 @@ A standalone, provider-backed design intelligence foundation for improving web, 
 - Project-scoped SQLite memory, permission policy, quality rubric, and FastAPI API.
 - Provider status endpoint exposes configuration metadata only; API keys are never returned.
 
-> **Important capability boundary:** this release performs design reasoning and planning. It does not yet inspect repositories, edit source code, launch browsers, capture screenshots, or perform visual regression testing. QA findings are model analysis, not proof of executed visual verification.
+> **Important capability boundary:** DIS can inspect GitHub repository metadata and a bounded sample of files in read-only mode. It does not yet edit source code, launch browsers, capture screenshots, or perform visual regression testing. QA findings are model analysis, not proof of executed visual verification.
 
 ## Architecture
 
@@ -117,7 +117,7 @@ Routine analysis and design planning are autonomous. Destructive, external, publ
 
 1. **Foundation:** registry, orchestration, project memory, permission policy, quality rubric, API.
 2. **Provider-backed reasoning (current):** configurable provider adapter, dynamic specialist selection, structured outputs, deterministic fallback.
-3. **Product adapters:** repository discovery, framework-aware product context, design-system ingestion.
+3. **Product adapters (in progress):** GitHub repository discovery is available in read-only mode; deepen framework-aware context and design-system ingestion.
 4. **Controlled execution:** patch proposals, sandboxed commands, approval workflow, browser automation.
 5. **Visual feedback loop:** viewport screenshots, visual issue detection, repair proposals, regression comparison.
 6. **Learning and operations:** reference library, project design memory, run tracing, observability, evaluation datasets.
