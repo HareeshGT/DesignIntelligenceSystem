@@ -21,3 +21,5 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest -q
       - run: ruff check .
+      - run: cp .env.example .env && docker compose config --quiet
+      - run: docker build -t design-intelligence-system:ci .
