@@ -18,7 +18,7 @@ from app.core.improvement_models import ImprovementProposalRequest
 from app.services.llm import LLMProvider, ProviderError
 
 API_ROOT = "https://api.github.com"
-ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".mjs", ".cjs", ".vue", ".svelte", ".html", ".htm", ".jinja", ".jinja2", ".j2", ".tmpl", ".tpl", ".mdx", ".css", ".scss", ".sass", ".less", ".dart", ".swift", ".kt", ".kts", ".qml", ".ui", ".m", ".mm", ".py", ".go", ".rs"}
+ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".mjs", ".cjs", ".vue", ".svelte", ".html", ".htm", ".jinja", ".jinja2", ".j2", ".tmpl", ".tpl", ".mdx", ".css", ".scss", ".sass", ".less", ".dart", ".swift", ".kt", ".kts", ".qml", ".ui", ".m", ".mm", ".py", ".qss", ".go", ".rs"}
 MAX_SOURCE_BYTES = 32_000
 MAX_DISCOVERY_FILES = 120
 MAX_PROPOSAL_BYTES = 32_000
@@ -100,7 +100,7 @@ def _ui_source_score(path: str, content: str) -> int:
     # framework-specific keywords being present in minified or hand-written assets.
     if suffix in {".html", ".htm"}:
         score += 10
-    elif suffix in {".css", ".scss", ".sass", ".less"}:
+    elif suffix in {".css", ".scss", ".sass", ".less", ".qss"}:
         score += 6
     elif suffix in {".js", ".ts", ".mjs", ".cjs"} and (
         "/assets/js/" in "/" + path.lower() or path.lower().endswith(("/main.js", "/app.js", "/site.js"))

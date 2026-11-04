@@ -213,6 +213,14 @@ class VisualInspector:
                         )
                         page = context.new_page()
                         page.route("**/*", _safe_route)
+                        # Inspection does not need live sockets. Block WebSockets explicitly:
+                        # Playwright's ordinary request route does not cover WebSocket handshakes.
+                        page.route_web_socket(
+                            "**/*",
+                            lambda websocket: websocket.close(
+                                code=1008, reason="WebSocket access is disabled during inspection"
+                            ),
+                        )
                         try:
                             response = page.goto(
                                 target, wait_until="domcontentloaded",
@@ -329,9 +337,10 @@ class VisualInspector:
                         for finding in visual_result["findings"]
                     ]
                     analysis_mode = "multimodal_vision_and_deterministic"
-                except (ProviderError, ValueError, TypeError):
+                except (ProviderError, ValueError, TypeError) as exc:
                     vision_limitations.append(
-                        "Multimodal visual analysis was unavailable; deterministic checks were used."
+                        "Multimodal visual analysis was unavailable; deterministic checks were used. "
+                        f"Provider diagnostic: {str(exc)[:240]}"
                     )
         elif request.analyze_with_vision:
             vision_limitations.append(

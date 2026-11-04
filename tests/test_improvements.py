@@ -299,3 +299,11 @@ def test_proposal_requires_some_design_context_when_findings_are_empty():
             target_files=["src/App.tsx"],
             source_sharing_consent=True,
         )
+
+
+def test_qt_stylesheets_are_eligible_for_ai_ui_proposals():
+    from app.services.improvements import _safe_source_path, _ui_source_score
+
+    source = "QWidget { background-color: #20242b; color: #f4f4f4; }"
+    assert _safe_source_path("ui/themes/dark.qss")
+    assert _ui_source_score("ui/themes/dark.qss", source) > 0
