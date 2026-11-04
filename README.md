@@ -91,7 +91,7 @@ The response contains detected stacks/frameworks, entry points, route/page paths
 
 The visual inspector accepts a public application URL and opens it in a headless Chromium browser at desktop (1440×1000), tablet (768×1024), and mobile (390×844) viewports. It returns viewport screenshots, page metadata, responsive overflow checks, and basic accessibility signals for image alternatives, accessible button/link names, form labels, and heading hierarchy.
 
-- API: `POST /api/v1/visual/inspect` with JSON `{"url":"https://example.com","capture_screenshots":true}`.
+- API: `POST /api/v1/visual/inspect` with JSON `{"url":"https://example.com","capture_screenshots":true,"analyze_with_vision":true}` to opt in to sending screenshots to the configured provider.
 - Include `X-DIS-API-Key` when `DIS_REPOSITORY_INSPECTION_API_KEY` is configured.
 - The target must be publicly reachable over HTTP(S). Localhost, private, loopback, link-local, and reserved IP targets are blocked, including redirects and browser subrequests.
 - Browser inspection is read-only: it does not log in, submit forms, click controls, or modify the target.
