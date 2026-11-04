@@ -22,7 +22,7 @@ ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte", ".html", ".
 MAX_SOURCE_BYTES = 32_000
 MAX_DISCOVERY_FILES = 120
 MAX_PROPOSAL_BYTES = 32_000
-FORBIDDEN_PATH_PARTS = {"auth", "database", "db", "infra", "migrations", "scripts", "security", "test", "tests"}
+FORBIDDEN_PATH_PARTS = {"auth", "database", "db", "infra", "middleware", "migrations", "scripts", "security", "test", "tests"}
 FORBIDDEN_SOURCE_NAMES = {"api.ts", "api.js", "auth.ts", "auth.js", "server.ts", "server.js", "middleware.ts", "middleware.js", "package.swift", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "webpack.config.js", "webpack.config.ts", "next.config.js", "next.config.ts", "vite.config.js", "vite.config.ts", "metro.config.js", "electron.vite.config.ts"}
 SECRET_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*['\"]?\s*([:=])\s*['\"]?([A-Za-z0-9_./+=:-]{12,})"),
@@ -88,7 +88,7 @@ def _ui_source_score(path: str, content: str) -> int:
     if re.search(r"\b(components?\s*=|html\s*=|template\s*=|page\s*=|render_[a-z_]+|build_[a-z_]*(?:page|view|screen|dashboard))", text):
         score += 3
     has_route = bool(re.search(r"@(?:app|router|bp|blueprint)\.(?:get|post|put|patch|route)\s*\(", text))
-    ui_route = bool(re.search(r"""['"]/(?:ui|dashboard|frontend|pages?|screens?|settings|projects|design|improvements)(?:/|['"])""", text))
+    ui_route = bool(re.search(r"""['"]/(?:api/v\d+/)?(?:ui|dashboard|frontend|pages?|screens?|settings|projects|design|improvements)(?:/|['"])""", text))
     if has_route and (ui_route or re.search(r"render_template|htmlresponse|templateresponse|response_class\s*=\s*html", text)):
         score += 8
     if has_route and re.search(r"(?:dashboard|frontend|page|screen|view|ui)_?(?:data|state|config|summary)|(?:data|state|config|summary)_for_(?:dashboard|frontend|page|screen|ui)", text):
