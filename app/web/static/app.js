@@ -355,7 +355,10 @@ async function inspectVisual(event) {
       })
     }).then(async response => {
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.detail || "Visual inspection failed (HTTP " + response.status + ").");
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 503) openSettings();
+        throw new Error(body.detail || "Visual inspection failed (HTTP " + response.status + ").");
+      }
       return body;
     });
     const repositoryValue = $("visual-repository").value.trim();
@@ -364,7 +367,10 @@ async function inspectVisual(event) {
       body:JSON.stringify({repository:repositoryValue, ref:$("visual-ref").value.trim() || null, include_file_samples:true})
     }).then(async response => {
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.detail || "Repository inspection failed (HTTP " + response.status + ").");
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 503) openSettings();
+        throw new Error(body.detail || "Repository inspection failed (HTTP " + response.status + ").");
+      }
       return body;
     }) : Promise.resolve(null);
     const [body, repositoryReport] = await Promise.all([visualRequest, repositoryRequest]);
