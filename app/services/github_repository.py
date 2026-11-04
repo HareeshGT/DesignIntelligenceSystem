@@ -41,6 +41,8 @@ PRIORITY_NAMES = {
     "components.json", "tsconfig.json", "pytest.ini",
 }
 SOURCE_SUFFIXES = {".tsx", ".jsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less", ".py", ".qss"}
+WEB_UI_SUFFIXES = {".tsx", ".jsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less", ".qss"}
+PYTHON_UI_TOKENS = ("ui", "view", "window", "widget", "dialog", "tab", "theme", "static_content")
 
 
 class RepositoryInspectionError(RuntimeError):
@@ -91,7 +93,7 @@ def _category(path: str) -> str:
         return "route_or_entry"
     if any(token in path.lower() for token in ("component", "widget", "layout")):
         return "component"
-    if suffix in {".css", ".scss", ".less"}:
+    if suffix in {".css", ".scss", ".less", ".qss"}:
         return "style"
     if suffix in SOURCE_SUFFIXES:
         return "source"
@@ -328,7 +330,8 @@ class GitHubRepositoryInspector:
     def _is_component_or_style(path: str) -> bool:
         p = path.lower()
         suffix = "." + p.rsplit(".", 1)[-1] if "." in p else ""
-        return suffix in SOURCE_SUFFIXES or "components/" in p or "design-system" in p
+        python_ui_file = suffix == ".py" and any(token in p for token in PYTHON_UI_TOKENS)
+        return suffix in WEB_UI_SUFFIXES or python_ui_file or "components/" in p or "design-system" in p
 
     @staticmethod
     def _commands(contents: dict[str, str]) -> list[str]:
