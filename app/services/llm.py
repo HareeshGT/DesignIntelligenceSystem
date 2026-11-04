@@ -139,6 +139,7 @@ class LLMProvider:
         return message[:300]
 
     def _openai_compatible(self, system: str, prompt: str, max_tokens: int = 1800) -> str:
+        self._validate_provider_endpoint()
         self._validate_custom_base_url()
         base = self.base_url or "https://api.openai.com/v1"
         response = httpx.post(
@@ -218,6 +219,7 @@ class LLMProvider:
     def _openai_compatible_images(
         self, system: str, prompt: str, images: list[dict[str, str]]
     ) -> str:
+        self._validate_provider_endpoint()
         self._validate_custom_base_url()
         base = self.base_url or "https://api.openai.com/v1"
         content = [{"type": "text", "text": prompt}]
