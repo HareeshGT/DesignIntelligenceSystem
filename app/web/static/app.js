@@ -552,7 +552,7 @@ async function proposeImprovement(event) {
   }
   const paths = $("improvement-files").value.split(",").map(value => value.trim()).filter(Boolean);
   if (!paths.length || paths.length > 4) {
-    $("improvement-error").textContent = "Provide between one and four existing frontend source paths.";
+    $("improvement-error").textContent = "Provide one to four repository file or directory paths (use . for the whole repository). UI relevance is determined from file contents, including Python UI code.";
     return;
   }
   const button = $("propose-submit");
