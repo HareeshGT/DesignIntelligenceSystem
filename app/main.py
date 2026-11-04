@@ -67,6 +67,8 @@ def provider_status():
             (os.getenv("DIS_VISION_LLM_API_KEY") or os.getenv("DIS_LLM_API_KEY", "")).strip()
             and (os.getenv("DIS_VISION_LLM_MODEL") or os.getenv("DIS_LLM_MODEL", "")).strip()
         ),
+        "vision_provider": os.getenv("DIS_VISION_LLM_PROVIDER") or (llm.provider if llm.enabled else None),
+        "vision_model": os.getenv("DIS_VISION_LLM_MODEL") or (llm.model if llm.enabled else None),
     }
 
 
