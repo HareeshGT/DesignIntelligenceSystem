@@ -21,12 +21,13 @@
       <div class="workspace-label">WORKSPACE</div>
       <nav class="nav">
         <a class="nav-item active" href="#overview" data-view="overview"><span class="nav-icon">◫</span> Overview</a>
+        <a class="nav-item" href="#studio" data-view="studio"><span class="nav-icon">✳</span> AI Design Studio</a>
         <a class="nav-item" href="#inspector" data-view="inspector"><span class="nav-icon">⌕</span> Repository inspector</a>
         <a class="nav-item" href="#visual" data-view="visual"><span class="nav-icon">◉</span> Visual inspection</a>
         <a class="nav-item" href="#history" data-view="history"><span class="nav-icon">↺</span> Inspection history</a>
       </nav>
       <div class="sidebar-bottom">
-        <div class="sidebar-note"><span class="pulse-dot"></span><span>Read-only inspection<br><small>Repository code is never executed</small></span></div>
+        <div class="sidebar-note"><span class="pulse-dot"></span><span>Approval-gated changes<br><small>Review diffs before GitHub writes</small></span></div>
         <a class="docs-link" href="/docs" target="_blank" rel="noreferrer">API documentation <span>↗</span></a>
       </div>
     </aside>
@@ -64,6 +65,39 @@
 
         <div class="section-title recent-title"><div><span class="eyebrow">YOUR WORK</span><h2>Recent inspections</h2></div><button class="text-button" data-go="history">View history →</button></div>
         <div id="overview-history" class="history-list compact"><div class="empty-state">Your repository inspections will appear here.</div></div>
+      </section>
+
+
+      <section class="view" id="view-studio">
+        <div class="page-heading simple-heading"><div><div class="eyebrow">AI PRODUCT WORKSPACE <span class="eyebrow-line"></span></div><h1>AI Design <em>Studio.</em></h1><p class="lede">Describe the experience you want. DIS coordinates its specialist team, studies your repository, proposes real source changes, and pushes only after your approval.</p></div></div>
+        <div class="studio-layout">
+          <div class="panel studio-brief-panel">
+            <div class="panel-heading"><div><span class="eyebrow">01 · PROJECT</span><h2>Choose your repository</h2></div><span class="step-count">DESIGN SESSION</span></div>
+            <form id="studio-form">
+              <label for="studio-repository">GitHub repository URL or owner/name</label>
+              <div class="input-wrap"><span>↗</span><input id="studio-repository" required placeholder="https://github.com/owner/repository" autocomplete="url"></div>
+              <div class="field-row"><div class="field-grow"><label for="studio-base-branch">Base branch</label><input id="studio-base-branch" value="main" placeholder="main"></div><div class="field-grow"><label for="studio-target-branch">New working branch</label><input id="studio-target-branch" value="dis/redesign" placeholder="dis/redesign"></div></div>
+              <label for="studio-brief" class="studio-label">02 · DESIGN BRIEF</label>
+              <textarea id="studio-brief" rows="6" required minlength="5" maxlength="10000" placeholder="Example: Redesign the dashboard to feel more premium. Simplify the navigation, improve visual hierarchy, create a consistent card system, and make every screen responsive. Preserve the existing product functionality."></textarea>
+              <div class="check-row"><input type="checkbox" id="studio-source-consent"><label for="studio-source-consent">I consent to sending the selected source files and this brief to my configured AI model provider to generate a code proposal.</label></div>
+              <div class="security-note"><span>◇</span><p><b>You stay in control of repository writes.</b><br>DIS reads source files for the proposal. It will show you the complete diff and will not create a branch or push code until you approve.</p></div>
+              <button class="primary-button submit-button" id="studio-submit" type="submit"><span class="button-label">Start AI design session</span><span class="button-arrow">→</span></button>
+              <p class="form-error" id="studio-error" role="alert"></p>
+            </form>
+          </div>
+          <aside class="panel studio-team-panel"><span class="eyebrow">YOUR SPECIALIST TEAM</span><h3>Design Director + specialists</h3><p>DIS selects the specialists needed for your brief and coordinates their work through shared project context.</p><div id="studio-agent-list" class="studio-agent-list"><div class="empty-state">Your team will appear after you start a session.</div></div><div class="studio-note"><span>✳</span><span>Design decisions first. Code implementation second. GitHub changes only after your review.</span></div></aside>
+        </div>
+        <section id="studio-design-report" class="report-section hidden"></section>
+        <section id="studio-implementation" class="panel studio-implementation hidden">
+          <div class="panel-heading"><div><span class="eyebrow">03 · IMPLEMENTATION</span><h2>Choose the UI files to change</h2></div><span class="step-count">MAX 4 FILES</span></div>
+          <p class="lede">DIS suggests files from the repository inventory. Review and edit this list before generating the patch. Backend, authentication, dependency and infrastructure files are not eligible.</p>
+          <label for="studio-files">Frontend source paths (comma-separated)</label>
+          <textarea id="studio-files" rows="3" placeholder="src/pages/Dashboard.tsx, src/styles.css"></textarea>
+          <div class="check-row"><input type="checkbox" id="studio-confirm-files"><label for="studio-confirm-files">I reviewed these paths and confirm they are the intended UI files.</label></div>
+          <button class="primary-button submit-button" id="studio-propose" type="button">Generate code proposal <span>→</span></button>
+          <p class="form-error" id="studio-proposal-error" role="alert"></p>
+          <div id="studio-proposal" class="hidden"></div>
+        </section>
       </section>
 
       <section class="view" id="view-inspector">
