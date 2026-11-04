@@ -35,7 +35,7 @@ jobs:
 
       - name: Smoke test Docker container
         run: |
-          docker run -d --name dis-smoke -p 8000:8000 design-intelligence-system:ci
+          docker run -d --name dis-smoke --security-opt seccomp=playwright-seccomp.json -p 8000:8000 design-intelligence-system:ci
           trap 'docker logs dis-smoke; docker rm -f dis-smoke' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail http://127.0.0.1:8000/health; then break; fi
