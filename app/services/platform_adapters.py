@@ -24,28 +24,28 @@ ELECTRON_PROFILE = PlatformProfile(
     name="Electron application",
     runtime_family="web_renderer",
     capabilities=("repository_inspection", "approved_frontend_pull_requests", "visual_audit_of_supplied_renderer_url"),
-    limitations=("Requires an externally provided renderer preview URL; native desktop shell automation is not available."),
+    limitations=("Requires an externally provided renderer preview URL; native desktop shell automation is not available.",),
 )
 REACT_NATIVE_PROFILE = PlatformProfile(
     adapter_id="react-native",
     name="React Native application",
     runtime_family="native_mobile",
     capabilities=("repository_inspection", "approved_frontend_source_proposals"),
-    limitations=("Device/emulator screenshots and native interaction tests require a future mobile runner."),
+    limitations=("Device/emulator screenshots and native interaction tests require a future mobile runner.",),
 )
 FLUTTER_PROFILE = PlatformProfile(
     adapter_id="flutter-native",
     name="Flutter application",
     runtime_family="native_mobile_or_desktop",
     capabilities=("repository_inspection", "approved_frontend_source_proposals"),
-    limitations=("Flutter emulator/desktop rendering and native interaction tests require a future runner."),
+    limitations=("Flutter emulator/desktop rendering and native interaction tests require a future runner.",),
 )
 NATIVE_PROFILE = PlatformProfile(
     adapter_id="native-desktop-mobile",
     name="Native desktop/mobile application",
     runtime_family="native",
     capabilities=("repository_inspection", "approved_source_proposals_for_selected_ui_files"),
-    limitations=("Native screenshots, accessibility trees and interaction tests require a platform-specific runner."),
+    limitations=("Native screenshots, accessibility trees and interaction tests require a platform-specific runner.",),
 )
 
 
