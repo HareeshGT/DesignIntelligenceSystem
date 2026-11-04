@@ -172,3 +172,60 @@ def test_provider_status_uses_request_scoped_user_model_without_exposing_key():
     assert response.json()["provider"] == "openai-compatible"
     assert response.json()["model"] == "user-model"
     assert "user-secret-never-return-this" not in response.text
+
+
+def test_request_scoped_llm_key_does_not_require_server_shared_key_for_design_run(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.delenv("DIS_REPOSITORY_INSPECTION_API_KEY", raising=False)
+    for name in ("DIS_GITHUB_TOKEN", "DIS_GITHUB_WRITE_TOKEN", "DIS_LLM_API_KEY", "DIS_VISION_LLM_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("app.main.request_llm", lambda *args, **kwargs: SimpleNamespace(enabled=True))
+    monkeypatch.setattr(
+        "app.main.Orchestrator.run",
+        lambda self, request: SimpleNamespace(model_dump=lambda **kwargs: {"results": []}),
+    )
+    response = client.post(
+        "/api/v1/design/runs",
+        headers={"X-DIS-LLM-API-Key": "caller-owned-key", "X-DIS-LLM-Provider": "mistral"},
+        json={"brief": "Improve the product dashboard UI"},
+    )
+    assert response.status_code == 200
+
+
+def test_request_scoped_credentials_do_not_require_server_key_for_repository_inspection(monkeypatch):
+    from types import SimpleNamespace
+    from app.services.github_repository import RepositoryInspectionError
+
+    monkeypatch.delenv("DIS_REPOSITORY_INSPECTION_API_KEY", raising=False)
+    for name in ("DIS_GITHUB_TOKEN", "DIS_GITHUB_WRITE_TOKEN", "DIS_LLM_API_KEY", "DIS_VISION_LLM_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("app.api.repositories.request_llm", lambda *args, **kwargs: SimpleNamespace(enabled=True))
+    def reject_inspection(*args, **kwargs):
+        raise RepositoryInspectionError("test reached repository inspection")
+    monkeypatch.setattr("app.api.repositories.GitHubRepositoryInspector.inspect", reject_inspection)
+    response = client.post(
+        "/api/v1/repositories/inspect",
+        headers={"X-DIS-LLM-API-Key": "caller-owned-key", "X-DIS-LLM-Provider": "mistral"},
+        json={"repository": "owner/repository", "include_file_samples": False},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "test reached repository inspection"
+
+
+def test_request_scoped_llm_key_does_not_require_server_shared_key_for_visual_inspection(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.delenv("DIS_REPOSITORY_INSPECTION_API_KEY", raising=False)
+    for name in ("DIS_GITHUB_TOKEN", "DIS_GITHUB_WRITE_TOKEN", "DIS_LLM_API_KEY", "DIS_VISION_LLM_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(
+        "app.api.visual.VisualInspector.inspect",
+        lambda self, request: SimpleNamespace(model_dump=lambda **kwargs: {"status": "ok"}),
+    )
+    response = client.post(
+        "/api/v1/visual/inspect",
+        headers={"X-DIS-LLM-API-Key": "caller-owned-key", "X-DIS-LLM-Provider": "mistral"},
+        json={"url": "https://example.com"},
+    )
+    assert response.status_code == 200
