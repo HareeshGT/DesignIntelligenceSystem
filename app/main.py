@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.repositories import router as repositories_router
 from app.api.visual import router as visual_router
+from app.api.improvements import router as improvements_router
 from app.core.models import ApprovalRequest, DesignRequest
 from app.core.permissions import PermissionPolicy
 from app.services.llm import LLMProvider
@@ -23,6 +24,7 @@ app = FastAPI(
 )
 app.include_router(repositories_router)
 app.include_router(visual_router)
+app.include_router(improvements_router)
 WEB_STATIC_DIR = Path(__file__).parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=WEB_STATIC_DIR), name="static")
 
