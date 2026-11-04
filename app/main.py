@@ -61,7 +61,11 @@ def list_agents():
 def provider_status(llm_provider: str | None = Header(default=None, alias="X-DIS-LLM-Provider"), llm_model: str | None = Header(default=None, alias="X-DIS-LLM-Model"), llm_api_key: str | None = Header(default=None, alias="X-DIS-LLM-API-Key"), llm_base_url: str | None = Header(default=None, alias="X-DIS-LLM-Base-URL")):
     """Expose safe request-scoped provider metadata only; never return credentials."""
     current_llm = request_llm(llm_provider, llm_model, llm_api_key, llm_base_url)
-    vision_provider = VisualDesignAnalyzer(provider=current_llm).provider
+    # Preserve dedicated server vision settings unless this browser supplied its own key.
+    vision_provider = (
+        VisualDesignAnalyzer(provider=current_llm).provider
+        if llm_api_key else VisualDesignAnalyzer().provider
+    )
     return {
         "configured": current_llm.enabled,
         "provider": current_llm.provider if current_llm.enabled else None,
