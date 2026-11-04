@@ -75,7 +75,7 @@ function renderHistory() {
 function navigate(view) {
   document.querySelectorAll(".view").forEach(node => node.classList.toggle("active", node.id === "view-" + view));
   document.querySelectorAll(".nav-item").forEach(node => node.classList.toggle("active", node.dataset.view === view));
-  $("breadcrumb-current").textContent = view === "inspector" ? "Repository inspector" : view === "history" ? "Inspection history" : "Overview";
+  $("breadcrumb-current").textContent = view === "inspector" ? "Repository inspector" : view === "visual" ? "Visual inspection" : view === "history" ? "Inspection history" : "Overview";
   if (location.hash !== "#" + view) history.replaceState(null, "", "#" + view);
 }
 document.querySelectorAll("[data-view], [data-go]").forEach(node => node.addEventListener("click", event => {
@@ -251,7 +251,91 @@ $("clear-history").addEventListener("click", () => {
     renderHistory();
   }
 });
+function renderVisualReport(data) {
+  const section = $("visual-report");
+  section.replaceChildren();
+  section.classList.remove("hidden");
+  const head = el("div", "report-head");
+  const title = el("div");
+  title.append(el("span", "eyebrow", "VISUAL INSPECTION COMPLETE"));
+  title.append(el("h2", "", data.page_title || data.final_url));
+  title.append(el("p", "", data.final_url + " · HTTP " + (data.status_code ?? "unknown")));
+  head.append(title);
+  const score = el("div", "visual-score");
+  score.append(el("strong", "", data.score + "/100"), el("span", "", "Initial UI quality signal · Grade " + data.grade));
+  head.append(score);
+  section.append(head);
+
+  const previews = el("div", "visual-previews");
+  (data.viewports || []).forEach(viewport => {
+    const figure = el("figure", "visual-preview");
+    figure.append(el("figcaption", "", viewport.name + " · " + viewport.width + " × " + viewport.height));
+    if (viewport.screenshot_base64) {
+      const img = document.createElement("img");
+      img.alt = "Captured " + viewport.name + " viewport";
+      img.loading = "lazy";
+      img.src = "data:image/jpeg;base64," + viewport.screenshot_base64;
+      figure.append(img);
+    } else figure.append(el("div", "empty-state", "Screenshot capture disabled"));
+    previews.append(figure);
+  });
+  section.append(previews);
+
+  const findingsTitle = el("div", "section-title");
+  findingsTitle.append(el("h2", "", "Detected issues (" + (data.findings || []).length + ")"));
+  section.append(findingsTitle);
+  const findings = el("div", "visual-findings");
+  (data.findings || []).forEach(finding => {
+    const item = el("article", "visual-finding");
+    const meta = el("div", "visual-finding-meta");
+    meta.append(el("span", "tag", finding.category), el("span", "severity severity-" + finding.severity, finding.severity));
+    item.append(meta, el("h3", "", finding.title), el("p", "", finding.description));
+    item.append(el("small", "", "Evidence: " + finding.evidence));
+    item.append(el("p", "visual-recommendation", "Recommendation: " + finding.recommendation));
+    findings.append(item);
+  });
+  if (!(data.findings || []).length) findings.append(el("div", "empty-state", "No issues were detected by the current deterministic checks."));
+  section.append(findings);
+  const limits = el("div", "report-card full");
+  limits.append(el("h3", "", "Analysis boundaries"));
+  addList(limits, data.limitations, true);
+  section.append(limits);
+  section.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+async function inspectVisual(event) {
+  event.preventDefault();
+  $("visual-error").textContent = "";
+  $("visual-report").classList.add("hidden");
+  const button = $("visual-submit");
+  button.disabled = true;
+  button.querySelector(".button-label").textContent = "Inspecting application…";
+  $("visual-loading").classList.remove("hidden");
+  try {
+    const headers = {"Content-Type":"application/json"};
+    const key = sessionStorage.getItem(KEY_STORAGE);
+    if (key) headers["X-DIS-API-Key"] = key;
+    const response = await fetch(API_BASE + "/api/v1/visual/inspect", {
+      method:"POST", headers,
+      body:JSON.stringify({url:$("visual-url").value.trim(), capture_screenshots:true})
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 503) openSettings();
+      throw new Error(body.detail || "Visual inspection failed (HTTP " + response.status + ").");
+    }
+    renderVisualReport(body);
+  } catch (error) {
+    $("visual-error").textContent = error.message || "Could not inspect this application.";
+  } finally {
+    $("visual-loading").classList.add("hidden");
+    button.disabled = false;
+    button.querySelector(".button-label").textContent = "Inspect application UI";
+  }
+}
+$("visual-form").addEventListener("submit", inspectVisual);
+
 const initial = location.hash.replace("#", "");
-navigate(["overview","inspector","history"].includes(initial) ? initial : "overview");
+navigate(["overview","inspector","visual","history"].includes(initial) ? initial : "overview");
 renderHistory();
 loadSystemStatus();
