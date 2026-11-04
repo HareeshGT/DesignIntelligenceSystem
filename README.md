@@ -96,7 +96,7 @@ The visual inspector accepts a public application URL and opens it in a headless
 - The target must be publicly reachable over HTTP(S). Localhost, private, loopback, link-local, and reserved IP targets are blocked, including redirects and browser subrequests.
 - Browser inspection is read-only: it does not log in, submit forms, click controls, or modify the target.
 - Screenshots are returned as base64 JPEGs in the response and are not persisted by the server.
-- This initial audit uses deterministic DOM/layout evidence. It is not yet multimodal screenshot interpretation, a WCAG certification, authenticated route crawling, or visual regression testing.
+- When the user explicitly enables AI screenshot analysis, screenshots are sent to the configured vision-capable provider for observations about visual hierarchy, spacing, typography, color and component consistency. Optional route exploration follows same-origin anchor links only, with a configurable hard limit. The score is heuristic, not a WCAG certification or objective design-quality guarantee.
 
 ## Browser dashboard
 
