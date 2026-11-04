@@ -222,3 +222,78 @@ def test_provider_timeout_has_actionable_error(monkeypatch):
     with pytest.raises(ProviderError, match="timed out"):
         provider.complete_json("system", "prompt")
 
+
+
+@pytest.mark.parametrize("method", ["_anthropic", "_anthropic_images"])
+def test_anthropic_rejects_openai_endpoint_before_sending_credentials(monkeypatch, method):
+    def unexpected_post(*args, **kwargs):
+        raise AssertionError("credentials must not be sent to the OpenAI host")
+
+    monkeypatch.setattr("app.services.llm.httpx.post", unexpected_post)
+    provider = LLMProvider(
+        provider="anthropic",
+        api_key="test-anthropic-secret",
+        model="claude-test",
+        base_url="https://api.openai.com/v1",
+    )
+    with pytest.raises(ProviderError, match="selected anthropic provider is configured with the openai API endpoint"):
+        if method == "_anthropic":
+            provider._anthropic("system", "prompt")
+        else:
+            provider._anthropic_images("system", "prompt", [{"data": "aGVsbG8=", "media_type": "image/jpeg"}])
+
+
+def test_complete_json_rejects_non_text_provider_content_as_provider_error(monkeypatch):
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": [{"type": "image"}]}}]}
+
+    monkeypatch.setattr("app.services.llm.httpx.post", lambda *args, **kwargs: Response())
+    provider = LLMProvider(provider="openai-compatible", api_key="test", model="test-model")
+    with pytest.raises(ProviderError, match="content must be text"):
+        provider.complete_json("system", "prompt")
+
+
+def test_multimodal_openai_compatible_request_has_bounded_output_tokens(monkeypatch):
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": '{"summary":"ok"}'}}]}
+
+    def fake_post(url, **kwargs):
+        captured.update(kwargs["json"])
+        return Response()
+
+    monkeypatch.setattr("app.services.llm.httpx.post", fake_post)
+    monkeypatch.setattr(
+        "app.services.llm.socket.getaddrinfo",
+        lambda *args, **kwargs: [(None, None, None, None, ("93.184.216.34", 443))],
+    )
+    provider = LLMProvider(provider="openai-compatible", api_key="test", model="vision-model", base_url="https://vision.example/v1")
+    provider.analyze_images_json("system", "prompt", [{"data": "aGVsbG8=", "media_type": "image/jpeg"}])
+    assert captured["max_tokens"] == 2400
+
+
+def test_vision_http_status_error_preserves_safe_provider_diagnostic(monkeypatch):
+    import httpx
+
+    response = httpx.Response(
+        400,
+        json={"error": {"message": "model does not support image input"}},
+        request=httpx.Request("POST", "https://provider.example/v1/chat/completions"),
+    )
+    monkeypatch.setattr("app.services.llm.httpx.post", lambda *args, **kwargs: response)
+    monkeypatch.setattr("app.services.llm.LLMProvider._validate_custom_base_url", lambda self: None)
+    provider = LLMProvider(
+        provider="openai-compatible", api_key="test-secret", model="text-only-model",
+        base_url="https://provider.example/v1",
+    )
+    with pytest.raises(ProviderError, match="HTTP 400.*does not support image input"):
+        provider.analyze_images_json("system", "prompt", [{"data": "aGVsbG8=", "media_type": "image/jpeg"}])
