@@ -265,7 +265,8 @@ class VisualInspector:
                     browser.close()
                 if request.crawl_internal_routes and discovered_routes:
                     route_browser = playwright.chromium.launch(
-                        headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"]
+                        headless=True, chromium_sandbox=True,
+                        args=["--disable-dev-shm-usage"],
                     )
                     try:
                         for route_url in discovered_routes[:request.max_routes]:
