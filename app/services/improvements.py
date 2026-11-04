@@ -170,7 +170,7 @@ class ImprovementService:
         if not self.write_token:
             raise ImprovementError("Configure DIS_GITHUB_WRITE_TOKEN with Contents and Pull requests write access.")
         if not self.signing_key:
-            raise ImprovementError("Configure DIS_REPOSITORY_INSPECTION_API_KEY to verify proposal approval.")
+            raise ImprovementError("Configure DIS_PROPOSAL_SIGNING_KEY to verify proposal approval.")
         try:
             encoded, signature = token.split(".", 1)
             expected = hmac.new(self.signing_key, encoded.encode(), hashlib.sha256).hexdigest()
