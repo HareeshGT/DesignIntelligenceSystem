@@ -7,6 +7,7 @@ from app.core.visual_models import VisualInspectionRequest
 from app.core.visual_comparison_models import VisualComparisonRequest
 from app.services.visual_compare import VisualComparator, VisualComparisonError
 from app.services.visual_inspector import VisualInspectionError, VisualInspector
+from app.services.llm import request_llm
 
 router = APIRouter(prefix="/api/v1/visual", tags=["visual intelligence"])
 
@@ -19,6 +20,10 @@ def _api_key_matches(api_key: str | None, expected_key: str) -> bool:
 def inspect_visual(
     request: VisualInspectionRequest,
     api_key: str | None = Header(default=None, alias="X-DIS-API-Key"),
+    llm_provider: str | None = Header(default=None, alias="X-DIS-LLM-Provider"),
+    llm_model: str | None = Header(default=None, alias="X-DIS-LLM-Model"),
+    llm_api_key: str | None = Header(default=None, alias="X-DIS-LLM-API-Key"),
+    llm_base_url: str | None = Header(default=None, alias="X-DIS-LLM-Base-URL"),
 ):
     """Render a public web page at desktop, tablet and mobile sizes and audit observable UI signals."""
     expected_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip()
@@ -30,7 +35,7 @@ def inspect_visual(
     ):
         raise HTTPException(status_code=401, detail="Invalid or missing DIS API key.")
     try:
-        return VisualInspector().inspect(request).model_dump(mode="json")
+        return VisualInspector(provider=request_llm(llm_provider, llm_model, llm_api_key, llm_base_url, timeout=45.0)).inspect(request).model_dump(mode="json")
     except VisualInspectionError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
