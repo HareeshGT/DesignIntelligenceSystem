@@ -11,10 +11,12 @@ function apiHeaders() {
   const key = sessionStorage.getItem(KEY_STORAGE);
   if (key) headers["X-DIS-API-Key"] = key;
   const values = Object.fromEntries(Object.entries(CREDENTIAL_FIELDS).map(([name, storage]) => [name, sessionStorage.getItem(storage) || ""]));
-  if (values.provider) headers["X-DIS-LLM-Provider"] = values.provider;
-  if (values.model) headers["X-DIS-LLM-Model"] = values.model;
-  if (values.baseUrl) headers["X-DIS-LLM-Base-URL"] = values.baseUrl;
-  if (values.llmKey) headers["X-DIS-LLM-API-Key"] = values.llmKey;
+  if (values.llmKey) {
+    headers["X-DIS-LLM-API-Key"] = values.llmKey;
+    if (values.provider) headers["X-DIS-LLM-Provider"] = values.provider;
+    if (values.model) headers["X-DIS-LLM-Model"] = values.model;
+    if (values.baseUrl) headers["X-DIS-LLM-Base-URL"] = values.baseUrl;
+  }
   if (values.githubRead) headers["X-DIS-GITHUB-READ-TOKEN"] = values.githubRead;
   if (values.githubWrite) headers["X-DIS-GITHUB-WRITE-TOKEN"] = values.githubWrite;
   return headers;
