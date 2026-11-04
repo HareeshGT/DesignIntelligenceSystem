@@ -52,6 +52,31 @@ def test_detect_stack_and_frameworks_from_manifests():
     assert "Tailwind CSS" in frameworks
 
 
+def test_kubedock_qt_stack_is_detected_from_requirements_and_entrypoint():
+    files = [
+        {"path": "requirements.txt"}, {"path": "main.py"},
+        {"path": "main_window.py"}, {"path": "themes.py"},
+    ]
+    contents = {
+        "requirements.txt": "PyQt5>=5.15\\nfastapi>=0.110\\n",
+        "main.py": "from PyQt5.QtWidgets import QApplication\\nfrom webapp import app",
+        "main_window.py": "from PyQt5.QtWidgets import QMainWindow",
+        "themes.py": "def build_qss(): ...",
+    }
+    stacks, managers, frameworks = GitHubRepositoryInspector._detect_stack(files, contents)
+    assert "Python" in stacks
+    assert "pip/Python" in managers
+    assert "Qt desktop" in frameworks
+    assert "FastAPI" in frameworks
+
+
+def test_tkinter_import_is_detected_as_desktop_framework():
+    files = [{"path": "requirements.txt"}, {"path": "main.py"}]
+    contents = {"requirements.txt": "", "main.py": "import tkinter as tk"}
+    _, _, frameworks = GitHubRepositoryInspector._detect_stack(files, contents)
+    assert "Tkinter desktop" in frameworks
+
+
 def test_commands_are_reported_as_not_executed():
     commands = GitHubRepositoryInspector._commands({
         "package.json": '{"scripts":{"test":"vitest run","lint":"eslint .","build":"vite build"}}'
