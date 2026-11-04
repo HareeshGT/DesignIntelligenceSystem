@@ -18,7 +18,7 @@ async function start(e){
  e.preventDefault();$("studio-error").textContent="";$("studio-proposal-error").textContent="";$("studio-implementation").classList.add("hidden");$("studio-design-report").classList.add("hidden");$("studio-proposal").classList.add("hidden");run=repo=token=null;
  const repository=$("studio-repository").value.trim(),brief=$("studio-brief").value.trim(),base=$("studio-base-branch").value.trim()||null,b=$("studio-submit");b.disabled=true;b.querySelector(".button-label").textContent="Coordinating specialist team…";
  try{
-  [run,repo]=await Promise.all([json("/api/v1/design/runs",{brief,product_context:"Repository "+repository+"; base "+(base||"default")+"; design and implement the requested UI changes.",target_platforms:["web"],autonomy:"high"}),json("/api/v1/repositories/inspect",{repository,ref:base,include_file_samples:true})]);
+  [run,repo]=await Promise.all([json("/api/v1/design/runs",{brief,product_context:"Repository "+repository+"; base "+(base||"default")+"; design and implement the requested UI changes.",target_platforms:["web"],autonomy:"high"}),json("/api/v1/repositories/inspect",{repository,ref:base,include_file_samples:false})]);
   render(run);$("studio-base-branch").value=repo.ref||base||"main";
   const paths=[...(repo.component_and_style_files||[]),...(repo.route_and_page_files||[]),...(repo.app_entry_points||[])].filter(p=>/\.(tsx|jsx|ts|js|vue|svelte|html|css|scss|less|dart|swift|kt|kts|qml|ui|m|mm)$/i.test(p)).filter(p=>!/(^|\/)(api|auth|backend|database|infra|middleware|migrations|scripts|server|test|tests)(\/|$)/i.test(p));
   $("studio-files").value=[...new Set(paths)].slice(0,4).join(", ");$("studio-implementation").classList.remove("hidden");
