@@ -126,3 +126,16 @@ def test_custom_model_endpoint_rejects_private_hosts():
     )
     with pytest.raises(ProviderError, match="public IP"):
         provider.complete_json("system", "prompt")
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected_base"),
+    [
+        ("mistral", "https://api.mistral.ai/v1"),
+        ("gemini", "https://generativelanguage.googleapis.com/v1beta/openai"),
+    ],
+)
+def test_provider_has_dedicated_default_endpoint(provider, expected_base):
+    configured = LLMProvider(provider=provider, api_key="test", model="test-model", base_url="")
+    assert configured.base_url == expected_base
+    assert configured.enabled
