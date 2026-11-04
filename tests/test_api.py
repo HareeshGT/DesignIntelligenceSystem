@@ -95,7 +95,7 @@ def test_improvement_endpoints_require_shared_api_key(monkeypatch):
     monkeypatch.delenv("DIS_REPOSITORY_INSPECTION_API_KEY", raising=False)
     response = client.post(
         "/api/v1/improvements/propose",
-        json={"repository":"owner/repo","target_files":["src/App.tsx"],"findings":[{"title":"test"}]},
+        json={"repository":"owner/repo","target_files":["src/App.tsx"],"findings":[{"category":"visual","severity":"medium","title":"test","description":"test issue","evidence":"visible in screenshot","recommendation":"adjust layout"}]},
     )
     assert response.status_code == 503
 
