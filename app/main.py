@@ -1,7 +1,9 @@
 from pathlib import Path
+import hmac
+import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -71,7 +73,14 @@ def provider_status():
 
 
 @app.post("/api/v1/design/runs")
-def create_design_run(request: DesignRequest):
+def create_design_run(request: DesignRequest, api_key: str | None = Header(default=None, alias="X-DIS-API-Key")):
+    """Run the specialist design team behind the same shared-key boundary as repository analysis."""
+    expected_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip()
+    sensitive_credentials = bool(os.getenv("DIS_GITHUB_TOKEN", "").strip() or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip() or llm.enabled)
+    if sensitive_credentials and not expected_key:
+        raise HTTPException(status_code=503, detail="Set DIS_REPOSITORY_INSPECTION_API_KEY before using AI design runs.")
+    if expected_key and (not api_key or not hmac.compare_digest(api_key.encode("utf-8"), expected_key.encode("utf-8"))):
+        raise HTTPException(status_code=401, detail="Invalid or missing DIS API key.")
     return orchestrator.run(request).model_dump(mode="json")
 
 
