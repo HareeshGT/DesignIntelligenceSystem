@@ -1,0 +1,266 @@
+from __future__ import annotations
+
+import base64
+import ipaddress
+import socket
+from urllib.parse import urlparse
+
+from playwright.sync_api import Browser, Error as PlaywrightError, sync_playwright
+
+from app.core.visual_models import (
+    ViewportEvidence,
+    VisualFinding,
+    VisualInspectionRequest,
+    VisualInspectionResponse,
+)
+
+
+VIEWPORTS = [
+    ("desktop", 1440, 1000),
+    ("tablet", 768, 1024),
+    ("mobile", 390, 844),
+]
+
+
+class VisualInspectionError(RuntimeError):
+    """Safe, user-facing browser inspection error."""
+
+
+def _validate_public_url(value: str) -> None:
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise VisualInspectionError("Only public HTTP or HTTPS URLs can be inspected.")
+    if parsed.username or parsed.password:
+        raise VisualInspectionError("URLs containing embedded credentials are not allowed.")
+    host = parsed.hostname.rstrip(".").lower()
+    if host in {"localhost", "localhost.localdomain"} or host.endswith(".localhost"):
+        raise VisualInspectionError("Localhost and local network targets are not allowed.")
+    try:
+        addresses = {ipaddress.ip_address(host)}
+    except ValueError:
+        try:
+            addresses = {
+                ipaddress.ip_address(item[4][0])
+                for item in socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80))
+            }
+        except (OSError, ValueError) as exc:
+            raise VisualInspectionError("The target hostname could not be resolved safely.") from exc
+    if not addresses or any(not address.is_global for address in addresses):
+        raise VisualInspectionError("Private, loopback, link-local and reserved network targets are blocked.")
+
+
+def _safe_route(route) -> None:
+    request_url = route.request.url
+    if request_url.startswith(("data:", "blob:")):
+        route.continue_()
+        return
+    try:
+        _validate_public_url(request_url)
+    except VisualInspectionError:
+        route.abort("blockedbyclient")
+        return
+    route.continue_()
+
+
+def _collect_metrics(page) -> dict:
+    return page.evaluate("""() => {
+      const visible = (el) => {
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+          Number(style.opacity) !== 0 && rect.width > 0 && rect.height > 0;
+      };
+      const named = (el) => (el.getAttribute('aria-label') ||
+        el.getAttribute('title') || el.innerText || el.value || '').trim();
+      const images = [...document.images].filter(visible);
+      const buttons = [...document.querySelectorAll('button,[role="button"]')].filter(visible);
+      const links = [...document.querySelectorAll('a[href]')].filter(visible);
+      const inputs = [...document.querySelectorAll('input,select,textarea')].filter(visible);
+      const headings = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6')].filter(visible);
+      const root = document.documentElement;
+      const body = document.body;
+      return {
+        title: document.title || '',
+        viewport_width: innerWidth,
+        viewport_height: innerHeight,
+        document_width: Math.max(root.scrollWidth, body ? body.scrollWidth : 0),
+        document_height: Math.max(root.scrollHeight, body ? body.scrollHeight : 0),
+        horizontal_overflow: Math.max(root.scrollWidth, body ? body.scrollWidth : 0) > innerWidth + 1,
+        visible_images: images.length,
+        images_missing_alt: images.filter(img => !img.hasAttribute('alt')).length,
+        visible_buttons: buttons.length,
+        buttons_without_name: buttons.filter(el => !named(el)).length,
+        visible_links: links.length,
+        links_without_name: links.filter(el => !named(el)).length,
+        visible_inputs: inputs.length,
+        inputs_without_label: inputs.filter(el => {
+          const id = el.id;
+          return !(id && document.querySelector('label[for="' + CSS.escape(id) + '"]')) &&
+            !el.closest('label') && !el.getAttribute('aria-label') && !el.getAttribute('aria-labelledby');
+        }).length,
+        heading_count: headings.length,
+        h1_count: headings.filter(el => el.tagName === 'H1').length,
+        landmark_count: document.querySelectorAll('main,nav,header,footer,aside,[role="main"],[role="navigation"]').length,
+        text_characters: (body ? body.innerText : '').trim().length
+      };
+    }""")
+
+
+def _findings(metrics: dict, viewport: str) -> list[VisualFinding]:
+    findings: list[VisualFinding] = []
+    if metrics["horizontal_overflow"]:
+        findings.append(VisualFinding(
+            category="responsive_design", severity="high",
+            title=f"Horizontal overflow at {viewport} viewport",
+            description="The document is wider than the visible viewport, which can force users to scroll sideways.",
+            evidence=f"Document width {metrics['document_width']}px vs viewport width {metrics['viewport_width']}px.",
+            recommendation="Inspect fixed-width containers, wide tables, grids and media. Use responsive sizing and intentional overflow regions.",
+        ))
+    if metrics["images_missing_alt"]:
+        findings.append(VisualFinding(
+            category="accessibility", severity="medium",
+            title="Images missing alternative text",
+            description="Some visible images do not expose an alt attribute to assistive technology.",
+            evidence=f"{metrics['images_missing_alt']} of {metrics['visible_images']} visible images lack alt attributes.",
+            recommendation="Add meaningful alt text to informative images and empty alt text to decorative images.",
+        ))
+    if metrics["buttons_without_name"]:
+        findings.append(VisualFinding(
+            category="accessibility", severity="high",
+            title="Buttons without accessible names",
+            description="Some visible buttons do not expose a usable accessible name.",
+            evidence=f"{metrics['buttons_without_name']} of {metrics['visible_buttons']} visible buttons have no detected name.",
+            recommendation="Provide visible button text or an appropriate aria-label for icon-only controls.",
+        ))
+    if metrics["links_without_name"]:
+        findings.append(VisualFinding(
+            category="accessibility", severity="medium",
+            title="Links without accessible names",
+            description="Some visible links have no detectable text or accessible name.",
+            evidence=f"{metrics['links_without_name']} of {metrics['visible_links']} visible links have no detected name.",
+            recommendation="Give each link descriptive text or an aria-label that explains its destination.",
+        ))
+    if metrics["inputs_without_label"]:
+        findings.append(VisualFinding(
+            category="accessibility", severity="high",
+            title="Form controls without labels",
+            description="Some visible form controls are not associated with a detectable accessible label.",
+            evidence=f"{metrics['inputs_without_label']} of {metrics['visible_inputs']} visible controls have no detected label.",
+            recommendation="Associate each control with a label element or aria-label/aria-labelledby.",
+        ))
+    if metrics["h1_count"] == 0 and metrics["text_characters"] > 0:
+        findings.append(VisualFinding(
+            category="content_hierarchy", severity="low",
+            title="No visible primary heading detected",
+            description="The page has content but no visible H1 heading was detected.",
+            evidence="Visible H1 count: 0.",
+            recommendation="Add a clear page-level heading and structure subsequent sections with ordered heading levels.",
+        ))
+    if metrics["visible_images"] == 0 and metrics["text_characters"] < 80:
+        findings.append(VisualFinding(
+            category="content", severity="low",
+            title="Very little visible page content",
+            description="The rendered page contains very little visible text or imagery.",
+            evidence=f"Visible text characters: {metrics['text_characters']}; visible images: 0.",
+            recommendation="Confirm the page loaded completely and that the intended route is being inspected.",
+        ))
+    return findings
+
+
+def _score(findings: list[VisualFinding]) -> tuple[int, str]:
+    deductions = {"high": 15, "medium": 8, "low": 3}
+    score = max(0, 100 - sum(deductions[item.severity] for item in findings))
+    grade = "A" if score >= 90 else "B" if score >= 80 else "C" if score >= 70 else "D" if score >= 55 else "F"
+    return score, grade
+
+
+class VisualInspector:
+    """Captures public web pages and audits observable DOM/layout signals."""
+
+    def inspect(self, request: VisualInspectionRequest) -> VisualInspectionResponse:
+        target = str(request.url)
+        _validate_public_url(target)
+        viewports: list[ViewportEvidence] = []
+        findings: list[VisualFinding] = []
+        aggregate: dict[str, int | float | bool | str] = {}
+        page_title = ""
+        final_url = target
+        status_code: int | None = None
+
+        try:
+            with sync_playwright() as playwright:
+                browser: Browser = playwright.chromium.launch(
+                    headless=True,
+                    args=["--no-sandbox", "--disable-dev-shm-usage"],
+                )
+                try:
+                    for name, width, height in VIEWPORTS:
+                        context = browser.new_context(
+                            viewport={"width": width, "height": height},
+                            device_scale_factor=1,
+                            service_workers="block",
+                            accept_downloads=False,
+                        )
+                        page = context.new_page()
+                        page.route("**/*", _safe_route)
+                        try:
+                            response = page.goto(
+                                target, wait_until="domcontentloaded",
+                                timeout=request.page_timeout_ms,
+                            )
+                            page.wait_for_timeout(700)
+                            metrics = _collect_metrics(page)
+                            page_title = str(metrics.get("title") or page_title)
+                            final_url = page.url
+                            status_code = response.status if response else status_code
+                            findings.extend(_findings(metrics, name))
+                            for key, value in metrics.items():
+                                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                                    aggregate[key] = max(aggregate.get(key, 0), value)
+                                elif key == "horizontal_overflow":
+                                    aggregate[key] = bool(aggregate.get(key, False) or value)
+                            screenshot = None
+                            if request.capture_screenshots:
+                                screenshot = base64.b64encode(
+                                    page.screenshot(type="jpeg", quality=62, full_page=False, animations="disabled")
+                                ).decode("ascii")
+                            viewports.append(ViewportEvidence(
+                                name=name, width=width, height=height,
+                                screenshot_base64=screenshot,
+                            ))
+                        except PlaywrightError as exc:
+                            raise VisualInspectionError(
+                                f"Could not render the target page at the {name} viewport: {str(exc)[:240]}"
+                            ) from exc
+                        finally:
+                            context.close()
+                finally:
+                    browser.close()
+        except VisualInspectionError:
+            raise
+        except Exception as exc:
+            raise VisualInspectionError(
+                "Browser inspection could not start. Ensure the DIS browser runtime is installed."
+            ) from exc
+
+        # Keep one finding per distinct issue and viewport so the evidence stays actionable.
+        unique = {(item.category, item.title, item.evidence): item for item in findings}
+        findings = list(unique.values())
+        score, grade = _score(findings)
+        return VisualInspectionResponse(
+            inspected_url=target,
+            page_title=page_title,
+            final_url=final_url,
+            status_code=status_code,
+            score=score,
+            grade=grade,
+            findings=findings,
+            metrics=aggregate,
+            viewports=viewports,
+            limitations=[
+                "This first visual-inspection milestone audits rendered DOM and responsive layout signals; it does not yet use a vision model to interpret screenshot aesthetics.",
+                "Only the supplied URL is inspected. Linked routes and authenticated pages are not crawled.",
+                "A clean result is not a WCAG conformance certification or proof of usability.",
+                "Public internet targets only; local/private network addresses and redirects to them are blocked.",
+            ],
+        )
