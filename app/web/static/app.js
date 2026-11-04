@@ -277,9 +277,14 @@ function saveActiveProviderProfile() {
 function loadProviderProfile(provider) {
   const profile = readProviderProfiles()[provider] || {};
   const defaults = PROVIDER_DEFAULTS[provider] || {};
+  const trimUrl = value => { while (value.endsWith("/")) value = value.slice(0, -1); return value; };
+  const savedBaseUrl = trimUrl((profile.baseUrl || "").trim());
+  const belongsToAnotherProvider = Object.entries(PROVIDER_DEFAULTS).some(([name, config]) =>
+    name !== provider && config.baseUrl && savedBaseUrl === trimUrl(config.baseUrl)
+  );
   $("llm-model").value = profile.model || defaults.model || "";
   $("llm-api-key").value = profile.apiKey || "";
-  $("llm-base-url").value = profile.baseUrl || defaults.baseUrl || "";
+  $("llm-base-url").value = belongsToAnotherProvider ? (defaults.baseUrl || "") : (savedBaseUrl || defaults.baseUrl || "");
   const help = $("llm-provider-help");
   if (help) help.textContent = provider === "mistral"
     ? "Mistral has its own model ID, API key and endpoint profile. The selected model powers the DIS specialist team."
@@ -297,7 +302,8 @@ function openSettings() {
   $("llm-provider").value = sessionStorage.getItem(CREDENTIAL_FIELDS.provider) || "openai";
   const selectedProvider = $("llm-provider").value;
   const profiles = readProviderProfiles();
-  if (!profiles[selectedProvider] && (sessionStorage.getItem(CREDENTIAL_FIELDS.model) || sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey))) {
+  const legacyProvider = sessionStorage.getItem(CREDENTIAL_FIELDS.provider) || "openai";
+  if (!profiles[selectedProvider] && legacyProvider === selectedProvider && (sessionStorage.getItem(CREDENTIAL_FIELDS.model) || sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey))) {
     profiles[selectedProvider] = {model:sessionStorage.getItem(CREDENTIAL_FIELDS.model)||"",apiKey:sessionStorage.getItem(CREDENTIAL_FIELDS.llmKey)||"",baseUrl:sessionStorage.getItem(CREDENTIAL_FIELDS.baseUrl)||""};
     sessionStorage.setItem(PROVIDER_PROFILES_KEY, JSON.stringify(profiles));
   }
