@@ -79,6 +79,8 @@ class ImprovementService:
         return response.json() if response.content else {}
 
     def propose(self, request: ImprovementProposalRequest) -> dict:
+        if request.source_sharing_consent is not True:
+            raise ImprovementError("Explicit source-sharing consent is required before reading repository files.")
         if not self.llm.enabled:
             raise ImprovementError("Configure a code-capable LLM before requesting source improvements.")
         if not self.signing_key:
