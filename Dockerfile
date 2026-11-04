@@ -12,7 +12,7 @@ RUN addgroup --system dis && adduser --system --ingroup dis --home /app dis
 COPY pyproject.toml README.md ./
 COPY app ./app
 
-RUN python -m pip install --upgrade pip && pip install .
+RUN python -m pip install --upgrade pip && pip install . && playwright install --with-deps chromium
 
 RUN mkdir -p /data && chown -R dis:dis /app /data
 USER dis
