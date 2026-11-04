@@ -6,6 +6,7 @@ from app.services.github_repository import (
     GitHubRepositoryInspector,
     RepositoryInspectionError,
     _parse_repository,
+    _redact_text,
     _safe_path,
 )
 
@@ -60,3 +61,11 @@ def test_commands_are_reported_as_not_executed():
     assert "npm run test (declared; not executed)" in commands
     assert "npm run lint (declared; not executed)" in commands
     assert "npm run build (declared; not executed)" in commands
+
+
+def test_likely_embedded_credentials_are_redacted():
+    text = 'api_key="sk-123456789012345678901234" Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456'
+    redacted = _redact_text(text)
+    assert "sk-123456789012345678901234" not in redacted
+    assert "abcdefghijklmnopqrstuvwxyz123456" not in redacted
+    assert "[REDACTED]" in redacted
