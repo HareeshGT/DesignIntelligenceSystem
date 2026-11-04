@@ -128,6 +128,23 @@ DIS includes a browser-based workspace served by the FastAPI application:
 
 The dashboard and API are served from the same origin; no separate frontend build or Node.js installation is required.
 
+
+## Deploy on Render with Docker
+
+Create a **Web Service** from this repository and select **Docker** as the runtime (Render can build directly from the included `Dockerfile`). Use these settings:
+
+- Dockerfile path: `./Dockerfile`
+- Docker build context: `.`
+- Health check path: `/health`
+- Do not set a fixed port in the Render dashboard. The container reads Render's injected `PORT` value and binds Uvicorn to `0.0.0.0:$PORT` (falling back to `8000` for local Docker).
+- Add a persistent disk mounted at `/data` if you need SQLite project memory to survive deploys/restarts. Set `DIS_DATABASE_PATH=/data/design_intelligence.db`. Render persistent disks require a paid service plan and are not shared between multiple instances.
+- Set `DIS_REPOSITORY_INSPECTION_API_KEY` and `DIS_PROPOSAL_SIGNING_KEY` as Render environment variables. Use independent, high-entropy secrets; never commit them to the repository. The dashboard prompts for the matching API key in Settings.
+- Add provider and GitHub credentials only where needed. Prefer entering user-owned model/GitHub credentials in the browser Settings rather than baking secrets into the image.
+
+The Docker image installs Chromium and its OS dependencies at build time for the visual-inspection endpoint. The image is therefore larger and its first build takes longer than a basic FastAPI image. Render's health check calls `/health`; a healthy container does not imply that an external model API key has been configured.
+
+For local Compose, `PORT=8000` is set explicitly and the host port remains configurable with `DIS_PORT`. The Dockerfile's runtime port handling is shared by local Docker and Render.
+
 ## Docker
 
 Copy the example environment file, configure optional provider/GitHub credentials, and start DIS:
