@@ -1,7 +1,7 @@
 import pytest
 
 from app.core.improvement_models import ImprovementProposalRequest
-from app.services.improvements import ImprovementError, ImprovementService, _repository_parts, _safe_scope_path, _safe_source_path, _ui_source_score
+from app.services.improvements import ImprovementError, ImprovementService, _repository_parts, _normalize_scope_path, _safe_scope_path, _safe_source_path, _ui_source_score
 from app.services.llm import ProviderError
 
 def test_only_existing_frontend_source_paths_are_allowed():
@@ -42,6 +42,15 @@ def test_ui_source_classifier_uses_python_file_contents_not_extension():
     assert _ui_source_score("app/routes.py", "@router.get('/api/v1/dashboard')\\ndef dashboard_data(): return {'cards': []}") >= 8
     assert _ui_source_score("app/database.py", "def connect_database(): return sqlite3.connect('app.db')") == 0
     assert _ui_source_score("app/services.py", "def calculate_invoice_total(items): return sum(items)") == 0
+
+
+def test_scope_normalization_accepts_common_relative_directory_forms():
+    assert _normalize_scope_path("./app/web/static/") == "app/web/static"
+    assert _normalize_scope_path(".\\\\app\\\\web\\\\static") == "app/web/static"
+    assert _normalize_scope_path("./") == "."
+    assert _safe_scope_path("./app/web/static/")
+    assert _safe_scope_path(".")
+    assert not _safe_scope_path("./../secrets")
 
 
 def test_root_scope_matches_nested_repository_files():
