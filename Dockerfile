@@ -14,7 +14,7 @@ COPY app ./app
 
 RUN python -m pip install --upgrade pip && pip install . && playwright install --with-deps chromium
 
-RUN mkdir -p /data && chown -R dis:dis /app /data
+RUN mkdir -p /data && chown -R dis:dis /app /data /ms-playwright
 USER dis
 
 EXPOSE 8000
