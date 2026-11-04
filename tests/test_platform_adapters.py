@@ -51,3 +51,11 @@ def test_swift_source_without_ui_framework_is_not_classified_as_app():
         files, {"Sources/Utility.swift": "import Foundation\\nstruct Helper {}"}
     )
     assert "Swift / Apple platform" not in frameworks
+
+
+def test_react_native_does_not_claim_browser_audit_from_react_dependency():
+    profiles = resolve_platform_profiles(["React", "React Native"], ["JavaScript/TypeScript"])
+    ids = {profile["adapter_id"] for profile in profiles}
+    assert "react-native" in ids
+    assert "web-browser" not in ids
+    assert all(isinstance(profile["limitations"], list) for profile in profiles)
