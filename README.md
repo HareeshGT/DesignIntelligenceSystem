@@ -1,24 +1,33 @@
 # Design Intelligence System
 
-A modular, multi-agent design intelligence foundation. The initial release establishes a Design Director, six specialist roles, structured task handoffs, project-scoped SQLite memory, permission gates, a quality rubric, and a FastAPI interface.
+A standalone, provider-backed design intelligence foundation for improving web, desktop, and mobile products. DIS coordinates specialist design capabilities, maintains project-scoped memory, applies permission gates, and evaluates evidence against a quality rubric. It has no dependency on KubeDock or any specific product.
 
-> **Current capability boundary:** this release provides deterministic orchestration and agent contracts. It does not yet connect to an LLM provider, edit a codebase, launch a browser, capture screenshots, or claim visual verification. Those are explicit next milestones.
+## Current capabilities
+
+- Design Director and six specialist roles: creative, UX, visual design, design systems, frontend planning, and visual QA.
+- Optional LLM-backed specialist analysis and dynamic specialist selection.
+- OpenAI-compatible provider support (OpenAI, Groq, Gemini, Mistral, OpenRouter, and compatible endpoints) plus Anthropic Messages API.
+- Deterministic fallback when no provider is configured or a provider request fails.
+- Structured JSON response parsing and Pydantic validation.
+- Project-scoped SQLite memory, permission policy, quality rubric, and FastAPI API.
+- Provider status endpoint exposes configuration metadata only; API keys are never returned.
+
+> **Important capability boundary:** this release performs design reasoning and planning. It does not yet inspect repositories, edit source code, launch browsers, capture screenshots, or perform visual regression testing. QA findings are model analysis, not proof of executed visual verification.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-  API[FastAPI] --> ORCH[Design Orchestrator]
+  API[FastAPI] --> ORCH[Dynamic Orchestrator]
+  ORCH --> PLAN[LLM Planner]
+  PLAN --> SPECIALISTS[Selected Specialists]
+  SPECIALISTS --> PROVIDER[Provider Adapter]
+  PROVIDER --> MODELS[OpenAI-compatible / Anthropic]
+  ORCH --> FALLBACK[Deterministic Fallback]
   ORCH --> DIR[Design Director]
-  ORCH --> C[Creative Director]
-  ORCH --> UX[UX Architect]
-  ORCH --> VD[Visual Designer]
-  ORCH --> DS[Design Systems Engineer]
-  ORCH --> FE[Frontend Engineer]
-  ORCH --> QA[Visual QA Engineer]
   ORCH --> MEM[(Project Memory / SQLite)]
-  ORCH --> Q[Quality Evaluator]
-  ORCH --> PERM[Permission Policy]
+  ORCH --> Q[Evidence-aware Quality Evaluator]
+  API --> PERM[Permission Policy]
 ```
 
 ## Quick start
@@ -27,16 +36,40 @@ flowchart TD
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
 pip install -e '.[dev]'
+cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000/docs` for the API explorer.
+DIS works without an API key in deterministic mode. To enable model-backed reasoning, edit `.env`:
+
+```dotenv
+DIS_LLM_PROVIDER=openai
+DIS_LLM_API_KEY=your_api_key
+DIS_LLM_MODEL=gpt-4o-mini
+```
+
+Supported provider values:
+- `openai` — OpenAI API (default base URL: `https://api.openai.com/v1`)
+- `anthropic` — Anthropic Messages API
+- `groq`, `gemini`, `mistral`, `openrouter`, `openai-compatible` — OpenAI-compatible chat completions API
+
+For compatible providers, set `DIS_LLM_BASE_URL` to the provider's OpenAI-compatible API base URL. Example for Groq:
+
+```dotenv
+DIS_LLM_PROVIDER=groq
+DIS_LLM_BASE_URL=https://api.groq.com/openai/v1
+DIS_LLM_API_KEY=your_api_key
+DIS_LLM_MODEL=your-model-id
+```
+
+Keep `.env` out of version control. Never place API keys in source code, requests, or logs.
 
 ## API
 
 - `GET /health` — service health
 - `GET /api/v1/agents` — registered roles
-- `POST /api/v1/design/runs` — orchestrate a design brief
+- `GET /api/v1/provider` — safe provider configuration status (never returns the key)
+- `POST /api/v1/design/runs` — dynamically select specialists and orchestrate a design brief
 - `POST /api/v1/permissions/evaluate` — evaluate an action against autonomy policy
 
 Example:
@@ -52,16 +85,18 @@ curl -X POST http://127.0.0.1:8000/api/v1/design/runs \\
 ```bash
 pip install -e '.[dev]'
 pytest -q
+ruff check .
 ```
 
 ## Autonomy and safety
 
-Routine analysis and design planning are autonomous. Destructive, external, publishing, deployment, permission-changing, and merge actions require explicit approval. Secret exfiltration and disabling security controls are prohibited. The policy is a guardrail, not a substitute for authorization checks in future execution adapters.
+Routine analysis and design planning are autonomous. Destructive, external, publishing, deployment, permission-changing, and merge actions require explicit approval. Secret exfiltration and disabling security controls are prohibited. Provider errors fall back to deterministic analysis rather than taking down the API. Provider output is treated as untrusted data and is constrained to structured result fields. The permission policy is not a substitute for authorization checks in future execution adapters.
 
 ## Roadmap
 
-1. **Foundation (this release):** registry, orchestration, shared context, memory, permission policy, quality rubric, API.
-2. **Provider adapters:** pluggable LLM clients, retries, token budgets, structured output validation, evaluation harness.
-3. **Execution adapters:** repository workspace, patch proposals, sandboxed commands, browser automation.
-4. **Visual feedback loop:** viewport screenshot capture, visual issue detection, prioritization, repair proposals, regression comparison.
-5. **Learning and operations:** reference library, project design memory, run tracing, observability, user feedback.
+1. **Foundation:** registry, orchestration, project memory, permission policy, quality rubric, API.
+2. **Provider-backed reasoning (current):** configurable provider adapter, dynamic specialist selection, structured outputs, deterministic fallback.
+3. **Product adapters:** repository discovery, framework-aware product context, design-system ingestion.
+4. **Controlled execution:** patch proposals, sandboxed commands, approval workflow, browser automation.
+5. **Visual feedback loop:** viewport screenshots, visual issue detection, repair proposals, regression comparison.
+6. **Learning and operations:** reference library, project design memory, run tracing, observability, evaluation datasets.
