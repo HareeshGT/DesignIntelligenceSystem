@@ -157,6 +157,19 @@ docker run --rm -p 8000:8000 --env-file .env -v dis-data:/data design-intelligen
 
 The container runs as a non-root user, includes a health check, and stores SQLite under `/data`. Keep `.env` private and never bake secrets into the Docker image.
 
+## Render deployment
+
+This repository includes a Render Blueprint in `render.yaml` and deploys the same Docker image used by local Compose.
+
+1. Push the repository to GitHub.
+2. In Render, choose **New → Blueprint**, connect this repository, and deploy the detected `render.yaml`.
+3. Render supplies the `PORT` environment variable. The Docker entrypoint and container health check both honor it; local Compose explicitly sets `PORT=8000`.
+4. After deployment, open the service's **Environment** settings and copy the generated `DIS_REPOSITORY_INSPECTION_API_KEY` value into the dashboard's **Shared DIS API key** setting. Keep `DIS_PROPOSAL_SIGNING_KEY` server-side; never put it in browser settings.
+
+The Blueprint uses Render's free web-service plan and does not attach a persistent disk. Its filesystem (including the SQLite database under `/data`) is ephemeral, so project memory and stored data can be lost when the service restarts or redeploys. For persistent SQLite data, move the service to a paid Render instance and attach a persistent disk mounted at `/data`; keep `DIS_DATABASE_PATH=/data/design_intelligence.db`.
+
+The image installs Chromium for browser-based visual inspection. The service can start on the free plan, but Chromium inspections are memory-intensive; use an instance with sufficient memory for production visual-inspection workloads. Render deployment and browser inspection should be verified after the first deploy using `GET /health` and a real visual-inspection request.
+
 ## API
 
 - `GET /` — browser dashboard
