@@ -23,13 +23,20 @@ def inspect_repository(
     """Inspect GitHub metadata and bounded file samples without executing repository code."""
     llm = request_llm(llm_provider, llm_model, llm_api_key, llm_base_url)
     expected_key = os.getenv("DIS_REPOSITORY_INSPECTION_API_KEY", "").strip()
-    has_sensitive_credentials = bool(github_token or os.getenv("DIS_GITHUB_TOKEN", "").strip() or llm.enabled)
+    # Caller-supplied GitHub/model credentials are request-scoped, not server
+    # credentials. They must not trigger a missing server-key error.
+    has_server_credentials = bool(
+        os.getenv("DIS_GITHUB_TOKEN", "").strip()
+        or os.getenv("DIS_GITHUB_WRITE_TOKEN", "").strip()
+        or os.getenv("DIS_LLM_API_KEY", "").strip()
+        or os.getenv("DIS_VISION_LLM_API_KEY", "").strip()
+    )
 
-    # Fail closed if a token or paid model is configured but endpoint authentication is not.
-    if has_sensitive_credentials and not expected_key:
+    # Fail closed if this deployment holds credentials but endpoint authentication is not.
+    if has_server_credentials and not expected_key:
         raise HTTPException(
             status_code=503,
-            detail="Repository inspection credentials are configured; set DIS_REPOSITORY_INSPECTION_API_KEY.",
+            detail="Server-side credentials are configured but DIS_REPOSITORY_INSPECTION_API_KEY is missing from the running service. Check the active Render service environment and redeploy.",
         )
     if expected_key and (
         not api_key or not hmac.compare_digest(api_key, expected_key)
