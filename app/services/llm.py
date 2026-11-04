@@ -7,6 +7,11 @@ from typing import Any
 import httpx
 
 
+def request_llm(provider: str | None = None, model: str | None = None, api_key: str | None = None, base_url: str | None = None, timeout: float = 30.0) -> "LLMProvider":
+    """Build a request-scoped provider; absent values fall back to server defaults."""
+    return LLMProvider(provider=provider or None, model=model or None, api_key=api_key or None, base_url=base_url or None, timeout=timeout)
+
+
 class ProviderError(RuntimeError):
     """Raised when a configured model provider cannot return a valid response."""
 
