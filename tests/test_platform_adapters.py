@@ -39,5 +39,15 @@ def test_swift_xcode_project_with_swift_source_is_detected():
         {"path": "Sample.xcodeproj/project.pbxproj"},
         {"path": "Sources/AppView.swift"},
     ]
-    _, _, frameworks = GitHubRepositoryInspector._detect_stack(files, {})
+    _, _, frameworks = GitHubRepositoryInspector._detect_stack(
+        files, {"Sources/AppView.swift": "import SwiftUI\\nstruct AppView: View {}"}
+    )
     assert "Swift / Apple platform" in frameworks
+
+
+def test_swift_source_without_ui_framework_is_not_classified_as_app():
+    files = [{"path": "Package.swift"}, {"path": "Sources/Utility.swift"}]
+    _, _, frameworks = GitHubRepositoryInspector._detect_stack(
+        files, {"Sources/Utility.swift": "import Foundation\\nstruct Helper {}"}
+    )
+    assert "Swift / Apple platform" not in frameworks
