@@ -57,6 +57,7 @@ def test_multimodal_provider_parses_json_from_mocked_openai_response(monkeypatch
         return Response()
 
     monkeypatch.setattr("app.services.llm.httpx.post", fake_post)
+    monkeypatch.setattr("app.services.llm.socket.getaddrinfo", lambda *args, **kwargs: [(None, None, None, None, ("93.184.216.34", 443))])
     provider = LLMProvider(provider="openai-compatible", api_key="test", model="vision-model", base_url="https://example.test/v1")
     result = provider.analyze_images_json("system", "review", [{"data": "aGVsbG8=", "media_type": "image/jpeg"}])
     assert result["summary"] == "clear hierarchy"
@@ -103,6 +104,7 @@ def test_request_llm_uses_user_credentials_without_mutating_server_defaults(monk
 
     monkeypatch.setenv("DIS_LLM_API_KEY", "server-secret")
     monkeypatch.setenv("DIS_LLM_MODEL", "server-model")
+    monkeypatch.setattr("app.services.llm.socket.getaddrinfo", lambda *args, **kwargs: [(None, None, None, None, ("93.184.216.34", 443))])
     provider = request_llm(
         provider="anthropic",
         model="user-model",
@@ -115,3 +117,12 @@ def test_request_llm_uses_user_credentials_without_mutating_server_defaults(monk
     assert provider.base_url == "https://user-provider.example/v1"
     assert LLMProvider().api_key == "server-secret"
     assert LLMProvider().model == "server-model"
+
+
+def test_custom_model_endpoint_rejects_private_hosts():
+    provider = LLMProvider(
+        provider="openai-compatible", api_key="test", model="model",
+        base_url="https://127.0.0.1:11434/v1",
+    )
+    with pytest.raises(ProviderError, match="public IP"):
+        provider.complete_json("system", "prompt")
