@@ -40,7 +40,7 @@ PRIORITY_NAMES = {
     "tailwind.config.js", "tailwind.config.ts", "tailwind.config.cjs",
     "components.json", "tsconfig.json", "pytest.ini",
 }
-SOURCE_SUFFIXES = {".tsx", ".jsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less"}
+SOURCE_SUFFIXES = {".tsx", ".jsx", ".vue", ".svelte", ".html", ".css", ".scss", ".less", ".py", ".qss"}
 
 
 class RepositoryInspectionError(RuntimeError):
@@ -232,7 +232,7 @@ class GitHubRepositoryInspector:
     def _priority(item: dict[str, Any]) -> tuple[int, int, str]:
         path = item["path"]
         name = path.rsplit("/", 1)[-1].lower()
-        if name in PRIORITY_NAMES:
+        if name in PRIORITY_NAMES or name in {"main.py", "main_window.py", "themes.py", "ui_kit.py"}:
             score = 0
         elif name == "readme.md":
             score = 1
@@ -294,12 +294,19 @@ class GitHubRepositoryInspector:
         )
         if swift_ui_evidence and any(p.endswith(".swift") for p in paths):
             frameworks.append("Swift / Apple platform")
-        if "pyproject.toml" in contents:
-            pyproject = contents["pyproject.toml"].lower()
-            for token, label in [("fastapi", "FastAPI"), ("django", "Django"), ("flask", "Flask"),
-                                 ("pyside", "Qt desktop"), ("pyqt", "Qt desktop")]:
-                if token in pyproject and label not in frameworks:
-                    frameworks.append(label)
+        python_dependency_text = "\\n".join(
+            contents.get(name, "") for name in ("pyproject.toml", "requirements.txt", "requirements-editor.txt")
+        ).lower()
+        for token, label in [
+            ("fastapi", "FastAPI"), ("django", "Django"), ("flask", "Flask"),
+            ("pyside", "Qt desktop"), ("pyqt", "Qt desktop"),
+        ]:
+            if token in python_dependency_text and label not in frameworks:
+                frameworks.append(label)
+        python_ui_imports = "\\n".join(contents.values()).lower()
+        if any(token in python_ui_imports for token in ("from tkinter", "import tkinter", "customtkinter")):
+            if "Tkinter desktop" not in frameworks:
+                frameworks.append("Tkinter desktop")
         return stacks, list(dict.fromkeys(managers)), list(dict.fromkeys(frameworks))
 
     @staticmethod
