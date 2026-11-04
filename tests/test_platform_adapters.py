@@ -58,4 +58,4 @@ def test_react_native_does_not_claim_browser_audit_from_react_dependency():
     ids = {profile["adapter_id"] for profile in profiles}
     assert "react-native" in ids
     assert "web-browser" not in ids
-    assert all(isinstance(profile["limitations"], list) for profile in profiles)
+    assert all(isinstance(profile["limitations"], tuple) for profile in profiles)
