@@ -254,7 +254,6 @@ class GitHubRepositoryInspector:
             ("Java/JVM", ["pom.xml", "build.gradle", "build.gradle.kts"]),
             ("Go", ["go.mod"]),
             ("Rust", ["cargo.toml"]),
-            ("Dart/Flutter", ["pubspec.yaml"]),
             ("PHP", ["composer.json"]),
             (".NET", [".csproj", ".sln"]),
             ("Ruby", ["gemfile"]),
@@ -262,6 +261,9 @@ class GitHubRepositoryInspector:
         for label, markers in indicators:
             if any(any(p.endswith(marker) for marker in markers) for p in paths):
                 stacks.append(label)
+        if "pubspec.yaml" in contents and "flutter:" in contents["pubspec.yaml"].lower() and any(path.endswith(".dart") for path in paths):
+            stacks.append("Dart/Flutter")
+            frameworks.append("Flutter")
         if "package.json" in contents:
             managers.append("npm-compatible (package.json)")
             if "pnpm-lock.yaml" in paths:
@@ -285,10 +287,8 @@ class GitHubRepositoryInspector:
             ]:
                 if token in package and label not in frameworks:
                     frameworks.append(label)
-        if any(p.endswith(".xcodeproj/project.pbxproj") or p.endswith("package.swift") for p in paths):
+        if any(p.endswith(".xcodeproj/project.pbxproj") for p in paths) and any(p.endswith(".swift") for p in paths):
             frameworks.append("Swift / Apple platform")
-        if "pubspec.yaml" in contents and "flutter:" in contents["pubspec.yaml"].lower():
-            frameworks.append("Flutter")
         if "pyproject.toml" in contents:
             pyproject = contents["pyproject.toml"].lower()
             for token, label in [("fastapi", "FastAPI"), ("django", "Django"), ("flask", "Flask"),
