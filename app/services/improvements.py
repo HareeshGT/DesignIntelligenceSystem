@@ -21,7 +21,7 @@ API_ROOT = "https://api.github.com"
 ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte", ".html", ".css", ".scss", ".dart", ".swift", ".kt", ".kts", ".qml", ".ui", ".m", ".mm"}
 MAX_SOURCE_BYTES = 32_000
 MAX_PROPOSAL_BYTES = 32_000
-FORBIDDEN_PATH_PARTS = {"api", "auth", "backend", "database", "db", "infra", "migrations", "scripts", "server", "test", "tests"}
+FORBIDDEN_PATH_PARTS = {"api", "auth", "backend", "database", "db", "infra", "middleware", "migrations", "scripts", "server", "test", "tests"}
 FORBIDDEN_SOURCE_NAMES = {"api.ts", "api.js", "auth.ts", "auth.js", "server.ts", "server.js", "middleware.ts", "middleware.js", "package.swift", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "webpack.config.js", "webpack.config.ts", "next.config.js", "next.config.ts", "vite.config.js", "vite.config.ts", "metro.config.js", "electron.vite.config.ts"}
 SECRET_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*['\"]?\s*([:=])\s*['\"]?([A-Za-z0-9_./+=:-]{12,})"),
@@ -53,7 +53,7 @@ def _safe_source_path(path: str) -> bool:
         return False
     parts = [part.lower() for part in path.split("/")]
     filename = parts[-1]
-    if any(part.startswith(".") or part in FORBIDDEN_PATH_PARTS for part in parts):
+    if any(part.startswith(".") or part.split(".", 1)[0] in FORBIDDEN_PATH_PARTS for part in parts):
         return False
     if filename in FORBIDDEN_SOURCE_NAMES or filename.startswith(("api.", "auth.", "server.", "middleware.")):
         return False
