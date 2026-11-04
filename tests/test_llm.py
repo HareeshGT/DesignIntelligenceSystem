@@ -96,3 +96,22 @@ def test_complete_json_passes_requested_token_limit_to_anthropic(monkeypatch):
     provider = LLMProvider(provider="anthropic", api_key="test", model="claude-test")
     assert provider.complete_json("system", "prompt", max_tokens=8192) == {"ok": True}
     assert captured["max_tokens"] == 8192
+
+
+def test_request_llm_uses_user_credentials_without_mutating_server_defaults(monkeypatch):
+    from app.services.llm import request_llm
+
+    monkeypatch.setenv("DIS_LLM_API_KEY", "server-secret")
+    monkeypatch.setenv("DIS_LLM_MODEL", "server-model")
+    provider = request_llm(
+        provider="anthropic",
+        model="user-model",
+        api_key="user-secret",
+        base_url="https://user-provider.example/v1",
+    )
+    assert provider.provider == "anthropic"
+    assert provider.model == "user-model"
+    assert provider.api_key == "user-secret"
+    assert provider.base_url == "https://user-provider.example/v1"
+    assert LLMProvider().api_key == "server-secret"
+    assert LLMProvider().model == "server-model"
