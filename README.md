@@ -34,7 +34,7 @@ flowchart TD
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e '.[dev]'
 cp .env.example .env
 uvicorn app.main:app --reload
@@ -81,14 +81,57 @@ Example:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/repositories/inspect \
   -H 'Content-Type: application/json' \
-  -H 'X-DIS-API-Key: your_shared_key' \\
+  -H 'X-DIS-API-Key: your_shared_key' \
   -d '{"repository":"HareeshGT/KubeDock","include_file_samples":true}'
 ```
 
 The response contains detected stacks/frameworks, entry points, route/page paths, component/style paths, design-system evidence, declared test commands, sampled-file evidence, an architecture summary, and limitations. It does not return source file contents.
 
+## Browser dashboard
+
+DIS includes a browser-based workspace served by the FastAPI application:
+
+- Open `http://127.0.0.1:8000/` for the dashboard.
+- **Overview** shows API health, provider mode, and recent inspections.
+- **Repository inspector** accepts a GitHub URL or `owner/name`, with an optional branch/tag/commit ref.
+- **Architecture report** displays detected stacks/frameworks, entry points, routes, components/styles, design-system signals, declared commands, sampled file evidence, and limitations.
+- **Inspection history** is stored in the current browser's local storage. It can be cleared from the History page.
+- If the server requires `DIS_REPOSITORY_INSPECTION_API_KEY`, enter that shared key in dashboard settings. It is stored in session storage for the current browser tab only. Do not enter a GitHub personal access token in the browser; configure `DIS_GITHUB_TOKEN` on the server.
+
+The dashboard and API are served from the same origin; no separate frontend build or Node.js installation is required.
+
+## Docker
+
+Copy the example environment file, configure optional provider/GitHub credentials, and start DIS:
+
+```bash
+cp .env.example .env
+# Edit .env; set DIS_REPOSITORY_INSPECTION_API_KEY when using an LLM key or GitHub token.
+docker compose up --build -d
+```
+
+Then open `http://localhost:8000/`. Compose persists SQLite project memory in the named Docker volume `dis-data`.
+
+Useful commands:
+
+```bash
+docker compose logs -f dis
+docker compose ps
+docker compose down
+```
+
+To build and run without Compose:
+
+```bash
+docker build -t design-intelligence-system .
+docker run --rm -p 8000:8000 --env-file .env -v dis-data:/data design-intelligence-system
+```
+
+The container runs as a non-root user, includes a health check, and stores SQLite under `/data`. Keep `.env` private and never bake secrets into the Docker image.
+
 ## API
 
+- `GET /` — browser dashboard
 - `GET /health` — service health
 - `GET /api/v1/agents` — registered roles
 - `GET /api/v1/provider` — safe provider configuration status (never returns the key)
@@ -98,8 +141,8 @@ The response contains detected stacks/frameworks, entry points, route/page paths
 Example:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/design/runs \\
-  -H 'Content-Type: application/json' \\
+curl -X POST http://127.0.0.1:8000/api/v1/design/runs \
+  -H 'Content-Type: application/json' \
   -d '{"brief":"Design a premium analytics dashboard","constraints":["WCAG AA","mobile first"]}'
 ```
 
@@ -108,7 +151,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/design/runs \\
 ```bash
 pip install -e '.[dev]'
 pytest -q
-ruff check .
+ruff check . --select E4,E7,E9,F
 ```
 
 ## Autonomy and safety
