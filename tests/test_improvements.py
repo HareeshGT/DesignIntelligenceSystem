@@ -1,5 +1,6 @@
 import pytest
 
+from app.core.improvement_models import ImprovementProposalRequest
 from app.services.improvements import ImprovementError, ImprovementService, _repository_parts, _safe_source_path
 
 def test_only_existing_frontend_source_paths_are_allowed():
@@ -100,3 +101,39 @@ def test_public_repository_reads_do_not_require_github_token(monkeypatch):
     assert "Authorization" not in captured["headers"]
     with pytest.raises(ImprovementError, match="DIS_GITHUB_WRITE_TOKEN"):
         service._request("POST", "https://api.github.com/repos/owner/repo/git/refs", write=True)
+
+
+def test_source_sharing_consent_must_be_explicitly_true():
+    from pydantic import ValidationError
+
+    base = {
+        "repository": "owner/repo",
+        "target_files": ["src/App.tsx"],
+        "findings": [{
+            "category": "visual",
+            "severity": "medium",
+            "title": "Improve spacing",
+            "description": "The visible cards are crowded.",
+            "evidence": "Cards touch at mobile width.",
+            "recommendation": "Increase vertical spacing.",
+        }],
+    }
+    with pytest.raises(ValidationError):
+        ImprovementProposalRequest(**base, source_sharing_consent=False)
+    request = ImprovementProposalRequest(**base, source_sharing_consent=True)
+    assert request.source_sharing_consent is True
+
+
+def test_proposal_rejects_missing_consent_before_github_reads(monkeypatch):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ImprovementProposalRequest(
+            repository="owner/repo",
+            target_files=["src/App.tsx"],
+            findings=[{
+                "category": "visual", "severity": "medium", "title": "Improve spacing",
+                "description": "The visible cards are crowded.", "evidence": "Cards touch.",
+                "recommendation": "Increase spacing.",
+            }],
+        )
