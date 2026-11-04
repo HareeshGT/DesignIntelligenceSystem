@@ -2,6 +2,15 @@ const API_BASE = "";
 const $ = (id) => document.getElementById(id);
 const HISTORY_KEY = "dis.inspection.history.v1";
 const KEY_STORAGE = "dis.inspection.api_key";
+let latestVisualReport = null;
+let latestRepositoryReport = null;
+let latestProposalToken = null;
+function apiHeaders() {
+  const headers = {"Content-Type":"application/json"};
+  const key = sessionStorage.getItem(KEY_STORAGE);
+  if (key) headers["X-DIS-API-Key"] = key;
+  return headers;
+}
 
 function getHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
@@ -121,6 +130,15 @@ function showReport(data) {
   stack.append(el("h3", "", "Package managers"));
   addTags(stack, data.package_managers, true);
   grid.append(card("Technology landscape", stack));
+  if (data.platform_profiles?.length) {
+    const profiles = el("div");
+    data.platform_profiles.forEach(profile => {
+      profiles.append(el("h3", "", profile.name + " · " + profile.adapter_id));
+      addList(profiles, profile.capabilities);
+      addList(profiles, profile.limitations, true);
+    });
+    grid.append(card("Platform adapter capabilities", profiles, true));
+  }
 
   const routes = el("div");
   addList(routes, data.app_entry_points);
@@ -265,6 +283,23 @@ function renderVisualReport(data) {
   score.append(el("strong", "", data.score + "/100"), el("span", "", "Initial UI quality signal · Grade " + data.grade));
   head.append(score);
   section.append(head);
+  if (data.visual_summary) section.append(el("p", "visual-summary", data.visual_summary));
+  if (data.design_system_signals && Object.keys(data.design_system_signals).length) {
+    const tokens = el("div", "design-signals");
+    Object.entries(data.design_system_signals).forEach(([key, values]) => {
+      const block = el("div", "design-signal");
+      block.append(el("b", "", key.replaceAll("_", " ")));
+      (values || []).forEach(value => block.append(el("span", "tag muted", value)));
+      tokens.append(block);
+    });
+    section.append(tokens);
+  }
+  if (data.inspected_pages?.length) {
+    const routes = el("div", "report-card full");
+    routes.append(el("h3", "", "Pages inspected (" + data.inspected_pages.length + ")"));
+    addList(routes, data.inspected_pages.map(page => page.url + " · " + (page.status_code ?? "unavailable") + " · " + page.title));
+    section.append(routes);
+  }
 
   const previews = el("div", "visual-previews");
   (data.viewports || []).forEach(viewport => {
@@ -305,26 +340,73 @@ function renderVisualReport(data) {
 
 async function inspectVisual(event) {
   event.preventDefault();
+  latestVisualReport = null;
+  latestRepositoryReport = null;
+  latestProposalToken = null;
   $("visual-error").textContent = "";
+  $("improvement-error").textContent = "";
+  $("proposal-report").classList.add("hidden");
   $("visual-report").classList.add("hidden");
   const button = $("visual-submit");
   button.disabled = true;
   button.querySelector(".button-label").textContent = "Inspecting application…";
   $("visual-loading").classList.remove("hidden");
   try {
-    const headers = {"Content-Type":"application/json"};
-    const key = sessionStorage.getItem(KEY_STORAGE);
-    if (key) headers["X-DIS-API-Key"] = key;
-    const response = await fetch(API_BASE + "/api/v1/visual/inspect", {
-      method:"POST", headers,
-      body:JSON.stringify({url:$("visual-url").value.trim(), capture_screenshots:true})
+    const visualRequest = fetch(API_BASE + "/api/v1/visual/inspect", {
+      method:"POST", headers:apiHeaders(),
+      body:JSON.stringify({
+        url:$("visual-url").value.trim(), capture_screenshots:true,
+        crawl_internal_routes:$("crawl-routes").checked, max_routes:4, analyze_with_vision:$("vision-analysis").checked
+      })
+    }).then(async response => {
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 503) openSettings();
+        throw new Error(body.detail || "Visual inspection failed (HTTP " + response.status + ").");
+      }
+      return body;
     });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 503) openSettings();
-      throw new Error(body.detail || "Visual inspection failed (HTTP " + response.status + ").");
+    const repositoryValue = $("visual-repository").value.trim();
+    const repositoryRequest = repositoryValue ? fetch(API_BASE + "/api/v1/repositories/inspect", {
+      method:"POST", headers:apiHeaders(),
+      body:JSON.stringify({repository:repositoryValue, ref:$("visual-ref").value.trim() || null, include_file_samples:true})
+    }).then(async response => {
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 503) openSettings();
+        throw new Error(body.detail || "Repository inspection failed (HTTP " + response.status + ").");
+      }
+      return body;
+    }) : Promise.resolve(null);
+    const [visualResult, repositoryResult] = await Promise.allSettled([visualRequest, repositoryRequest]);
+    if (visualResult.status === "rejected") throw visualResult.reason;
+    const body = visualResult.value;
+    const repositoryReport = repositoryResult.status === "fulfilled" ? repositoryResult.value : null;
+    const repositoryWarning = repositoryResult.status === "rejected" ? repositoryResult.reason?.message || "Linked repository inspection failed." : "";
+    latestVisualReport = body;
+    latestRepositoryReport = repositoryReport;
+    if (repositoryReport) {
+      $("improvement-repo").value = repositoryReport.repository;
+      $("improvement-ref").value = repositoryReport.ref;
+      const suggested = [...(repositoryReport.component_and_style_files || []), ...(repositoryReport.app_entry_points || [])]
+        .filter(path => /\.(tsx|jsx|ts|js|vue|svelte|html|css|scss|dart|swift|kt|kts|qml|ui|m|mm)$/i.test(path))
+        .slice(0,4);
+      if (!$("improvement-files").value.trim() && suggested.length) $("improvement-files").value = suggested.join(", ");
     }
     renderVisualReport(body);
+    if (repositoryWarning) {
+      const warning = el("div", "report-card full warning", "Visual inspection succeeded, but linked repository context was unavailable: " + repositoryWarning);
+      $("visual-report").append(warning);
+    }
+    if (repositoryReport) {
+      const context = el("div", "report-card full");
+      context.append(el("h3", "", "Linked repository context: " + repositoryReport.repository));
+      context.append(el("p", "summary-text", repositoryReport.architecture_summary));
+      const list = el("div");
+      addList(list, repositoryReport.frameworks);
+      context.append(list);
+      $("visual-report").append(context);
+    }
   } catch (error) {
     $("visual-error").textContent = error.message || "Could not inspect this application.";
   } finally {
@@ -339,3 +421,138 @@ const initial = location.hash.replace("#", "");
 navigate(["overview","inspector","visual","history"].includes(initial) ? initial : "overview");
 renderHistory();
 loadSystemStatus();
+
+async function compareVersions(event) {
+  event.preventDefault();
+  $("compare-error").textContent = "";
+  $("compare-submit").disabled = true;
+  $("compare-submit").textContent = "Comparing screenshots…";
+  try {
+    const response = await fetch("/api/v1/visual/compare", {
+      method:"POST", headers:apiHeaders(),
+      body:JSON.stringify({baseline_url:$("baseline-url").value.trim(), candidate_url:$("candidate-url").value.trim()})
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.detail || "Visual comparison failed.");
+    const report = $("compare-report");
+    report.replaceChildren();
+    report.classList.remove("hidden");
+    report.append(el("h3", "", "Before / after comparison"));
+    (body.comparisons || []).forEach(item => {
+      const row = el("div", "comparison-row");
+      row.append(el("b", "", item.viewport), el("span", "", item.pixel_similarity_percent + "% pixel similarity"), el("span", "", item.changed_pixel_percent + "% pixels changed"));
+      report.append(row);
+      const pair = el("div", "comparison-images");
+      [["Before", item.baseline_screenshot_base64], ["After", item.candidate_screenshot_base64]].forEach(([label, imageData]) => {
+        const figure = el("figure", "comparison-image");
+        figure.append(el("figcaption", "", label + " · " + item.viewport));
+        const image = document.createElement("img");
+        image.alt = label + " " + item.viewport + " screenshot";
+        image.src = "data:image/jpeg;base64," + imageData;
+        figure.append(image);
+        pair.append(figure);
+      });
+      report.append(pair);
+    });
+    report.append(el("p", "summary-text", "Finding score change: " + (body.score_delta > 0 ? "+" : "") + body.score_delta));
+    const resolved = el("div");
+    resolved.append(el("h4", "", "Resolved findings"));
+    addList(resolved, body.resolved_finding_titles);
+    report.append(resolved);
+    const added = el("div");
+    added.append(el("h4", "", "New findings"));
+    addList(added, body.new_finding_titles);
+    report.append(added);
+    report.append(el("p", "privacy-caption", (body.limitations || []).join(" ")));
+  } catch (error) {
+    $("compare-error").textContent = error.message || "Could not compare the two versions.";
+  } finally {
+    $("compare-submit").disabled = false;
+    $("compare-submit").textContent = "Compare versions →";
+  }
+}
+$("compare-form").addEventListener("submit", compareVersions);
+
+async function proposeImprovement(event) {
+  event.preventDefault();
+  $("improvement-error").textContent = "";
+  if (!latestVisualReport) {
+    $("improvement-error").textContent = "Run a visual inspection first so the proposal can use real findings.";
+    return;
+  }
+  if (!$("source-consent").checked) {
+    $("improvement-error").textContent = "Confirm consent before sending selected source files to the configured model provider.";
+    return;
+  }
+  const paths = $("improvement-files").value.split(",").map(value => value.trim()).filter(Boolean);
+  if (!paths.length || paths.length > 4) {
+    $("improvement-error").textContent = "Provide between one and four existing frontend source paths.";
+    return;
+  }
+  const button = $("propose-submit");
+  button.disabled = true;
+  button.textContent = "Preparing patch proposal…";
+  try {
+    const response = await fetch("/api/v1/improvements/propose", {
+      method:"POST", headers:apiHeaders(),
+      body:JSON.stringify({
+        repository:$("improvement-repo").value.trim(),
+        ref:$("improvement-ref").value.trim() || null,
+        target_files:paths,
+        findings:(latestVisualReport.findings || []).slice(0,20),
+        visual_summary:latestVisualReport.visual_summary || "",
+        source_sharing_consent: $("source-consent").checked === true
+      })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.detail || "Could not generate the improvement proposal.");
+    latestProposalToken = body.proposal_token;
+    const panel = $("proposal-report");
+    panel.replaceChildren();
+    panel.classList.remove("hidden");
+    panel.append(el("h3", "", body.summary));
+    panel.append(el("p", "privacy-caption", "Files: " + (body.files || []).map(file => file.path).join(", ") + " · Expires in 30 minutes"));
+    panel.append(el("pre", "proposal-diff", body.diff || "No diff supplied."));
+    const approval = el("label", "approval-check");
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.id = "approve-patch";
+    approval.append(check, el("span", "", "I reviewed this diff and approve creating a GitHub pull request."));
+    panel.append(approval);
+    const apply = el("button", "primary-button", "Approve and create pull request →");
+    apply.type = "button";
+    apply.disabled = true;
+    check.addEventListener("change", () => apply.disabled = !check.checked);
+    apply.addEventListener("click", async () => {
+      if (!check.checked || !latestProposalToken) return;
+      apply.disabled = true;
+      apply.textContent = "Creating pull request…";
+      try {
+        const result = await fetch("/api/v1/improvements/apply", {
+          method:"POST", headers:apiHeaders(),
+          body:JSON.stringify({proposal_token:latestProposalToken, approval:true})
+        });
+        const outcome = await result.json().catch(() => ({}));
+        if (!result.ok) throw new Error(outcome.detail || "Could not create the pull request.");
+        const link = document.createElement("a");
+        link.href = outcome.pull_request_url;
+        link.target = "_blank";
+        link.rel = "noreferrer";
+        link.textContent = "Open generated pull request #" + outcome.number;
+        link.className = "proposal-link";
+        panel.append(link);
+        latestProposalToken = null;
+      } catch (error) {
+        $("improvement-error").textContent = error.message || "Apply failed.";
+        apply.disabled = false;
+      }
+    });
+    panel.append(apply);
+  } catch (error) {
+    $("improvement-error").textContent = error.message || "Could not generate a proposal.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Generate improvement proposal →";
+  }
+}
+$("improvement-form").addEventListener("submit", proposeImprovement);

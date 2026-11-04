@@ -92,15 +92,45 @@
         <div class="page-heading simple-heading"><div><div class="eyebrow">VISUAL INTELLIGENCE <span class="eyebrow-line"></span></div><h1>Visual <em>inspection.</em></h1><p class="lede">Open a public web application in a real browser. DIS captures desktop, tablet and mobile views and audits observable layout and accessibility signals.</p></div></div>
         <div class="panel visual-form-panel">
           <form id="visual-form">
-            <label for="visual-url">Public application URL</label>
+            <label for="visual-url">Deployed application / preview URL</label>
             <div class="input-wrap"><span>↗</span><input id="visual-url" name="url" type="url" placeholder="https://your-app.example.com" autocomplete="url" required></div>
-            <div class="security-note"><span>◇</span><p><b>Isolated, read-only browser inspection.</b><br>DIS does not log in, submit forms, click destructive controls or modify the target. Local and private network addresses are blocked.</p></div>
+            <p class="privacy-caption">The repository must already have a public preview URL. DIS does not yet execute or build arbitrary repository code.</p>
+            <label for="visual-repository">GitHub repository (optional, links source analysis to this visual audit)</label>
+            <input id="visual-repository" type="text" placeholder="owner/repository">
+            <label for="visual-ref">Git branch / ref (optional)</label>
+            <input id="visual-ref" type="text" placeholder="main">
+            <div class="check-row"><input type="checkbox" id="crawl-routes"><label for="crawl-routes">Explore up to four same-origin linked pages (GET navigation only)</label></div>
+            <div class="check-row"><input type="checkbox" id="vision-analysis"><label for="vision-analysis">Enable AI screenshot analysis (screenshots are sent to your configured model provider)</label></div>
+            <div class="security-note"><span>◇</span><p><b>Read-only browser inspection.</b><br>DIS does not log in, submit forms or click controls. Local/private network targets and unsafe route patterns are blocked.</p></div>
             <button class="primary-button submit-button" id="visual-submit" type="submit"><span class="button-label">Inspect application UI</span><span class="button-arrow">→</span></button>
             <p class="form-error" id="visual-error" role="alert"></p>
           </form>
         </div>
         <div class="loading-panel panel hidden" id="visual-loading"><div class="loader"></div><div><b>Rendering application views</b><p>Capturing desktop, tablet and mobile layouts…</p></div><span class="loading-label">INSPECTING</span></div>
         <section id="visual-report" class="report-section hidden"></section>
+        <section class="panel visual-form-panel compare-panel">
+          <span class="eyebrow">VISUAL REGRESSION</span><h2>Compare before and after</h2>
+          <p class="lede">Compare two deployed versions at the same viewports. Pixel similarity measures change, not design quality.</p>
+          <form id="compare-form">
+            <label for="baseline-url">Before URL</label><div class="input-wrap"><span>↗</span><input id="baseline-url" type="url" required placeholder="https://before.example.com"></div>
+            <label for="candidate-url">After URL</label><div class="input-wrap"><span>↗</span><input id="candidate-url" type="url" required placeholder="https://after.example.com"></div>
+            <button class="primary-button submit-button" type="submit" id="compare-submit">Compare versions <span>→</span></button>
+            <p class="form-error" id="compare-error" role="alert"></p>
+          </form><div id="compare-report" class="hidden"></div>
+        </section>
+        <section class="panel visual-form-panel improvement-panel">
+          <span class="eyebrow">APPROVAL-GATED IMPLEMENTATION</span><h2>Turn findings into a code change</h2>
+          <p class="lede">DIS can prepare a bounded patch for selected frontend files and open a GitHub pull request only after you explicitly approve it.</p>
+          <form id="improvement-form">
+            <label for="improvement-repo">GitHub repository (owner/name)</label><input id="improvement-repo" type="text" placeholder="owner/repository" required>
+            <label for="improvement-ref">Target branch</label><input id="improvement-ref" type="text" placeholder="main">
+            <label for="improvement-files">Existing UI source file paths (comma-separated, max 4)</label><textarea id="improvement-files" rows="3" placeholder="src/pages/Dashboard.tsx, src/styles.css" required></textarea>
+            <div class="check-row"><input type="checkbox" id="source-consent"><label for="source-consent">I agree to send these selected source files and visual findings to the configured LLM provider to generate a patch.</label></div>
+            <button class="primary-button submit-button" type="submit" id="propose-submit">Generate improvement proposal →</button>
+            <p class="form-error" id="improvement-error" role="alert"></p>
+          </form>
+          <div id="proposal-report" class="hidden"></div>
+        </section>
       </section>
 
       <section class="view" id="view-history">

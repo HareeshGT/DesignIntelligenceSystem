@@ -12,7 +12,7 @@ A standalone, provider-backed design intelligence foundation for improving web, 
 - Project-scoped SQLite memory, permission policy, quality rubric, and FastAPI API.
 - Provider status endpoint exposes configuration metadata only; API keys are never returned.
 
-> **Important capability boundary:** DIS can inspect GitHub repository metadata and can now launch an isolated Playwright browser against a supplied public web URL, capture desktop/tablet/mobile screenshots, and audit observable DOM/layout/accessibility signals. This first visual milestone does not yet use a vision model to interpret screenshot aesthetics, crawl linked routes, authenticate, edit source code, or perform visual regression testing.
+> **Capability boundary:** DIS can inspect GitHub repositories read-only, inspect deployed public web URLs in Chromium, use configured multimodal models to interpret screenshots, optionally crawl a bounded set of same-origin routes, prepare constrained frontend patches, and create a GitHub pull request only after explicit approval. It does not yet execute a repository checkout or build an arbitrary repository in a managed preview sandbox; provide an existing deployed/preview URL. Native desktop/mobile screenshot and interaction automation and authenticated route journeys are not currently supported, although the platform adapter registry identifies the required runner type.
 
 ## Architecture
 
@@ -73,6 +73,7 @@ DIS can now inspect a GitHub repository without cloning it or executing its code
 - If a GitHub token or LLM API key is configured, also set `DIS_REPOSITORY_INSPECTION_API_KEY`. Requests must then include `X-DIS-API-Key`; the endpoint fails closed rather than exposing a configured GitHub token or allowing unauthenticated LLM usage.
 - DIS inventories the repository tree, detects common stacks and framework signals, identifies likely entry points/routes/components/styles/design-system files, and reports declared test/lint/build commands.
 - It samples a bounded number of files and limits bytes read. Likely embedded credentials are redacted before sampled text is sent to the configured LLM.
+- Repository reports include platform adapter profiles. Web apps use the browser visual workflow; Electron can use a supplied renderer preview URL; React Native, Flutter, Swift and Qt are identified with explicit native-runner limitations.
 - It never executes project code, installs dependencies, runs tests, or claims visual verification. The report includes limitations and explicit “not executed” labels.
 - The endpoint accepts `owner/name` or a `https://github.com/owner/name` URL. An optional `ref` selects a branch, tag, or commit.
 
@@ -89,14 +90,22 @@ The response contains detected stacks/frameworks, entry points, route/page paths
 
 ## Browser-based visual inspection
 
-The visual inspector accepts a public application URL and opens it in a headless Chromium browser at desktop (1440×1000), tablet (768×1024), and mobile (390×844) viewports. It returns viewport screenshots, page metadata, responsive overflow checks, and basic accessibility signals for image alternatives, accessible button/link names, form labels, and heading hierarchy.
+The visual inspector accepts a public application URL (optionally linked to a GitHub repository/ref in the dashboard) and opens it in a headless Chromium browser at desktop (1440×1000), tablet (768×1024), and mobile (390×844) viewports. It returns viewport screenshots, page metadata, responsive overflow checks, and basic accessibility signals for image alternatives, accessible button/link names, form labels, and heading hierarchy.
 
-- API: `POST /api/v1/visual/inspect` with JSON `{"url":"https://example.com","capture_screenshots":true}`.
+- API: `POST /api/v1/visual/inspect` with JSON `{"url":"https://example.com","capture_screenshots":true,"analyze_with_vision":true}` to opt in to sending screenshots to the configured provider.
 - Include `X-DIS-API-Key` when `DIS_REPOSITORY_INSPECTION_API_KEY` is configured.
 - The target must be publicly reachable over HTTP(S). Localhost, private, loopback, link-local, and reserved IP targets are blocked, including redirects and browser subrequests.
 - Browser inspection is read-only: it does not log in, submit forms, click controls, or modify the target.
 - Screenshots are returned as base64 JPEGs in the response and are not persisted by the server.
-- This initial audit uses deterministic DOM/layout evidence. It is not yet multimodal screenshot interpretation, a WCAG certification, authenticated route crawling, or visual regression testing.
+- When the user explicitly enables AI screenshot analysis, screenshots are sent to the configured vision-capable provider. You can configure a separate vision model with `DIS_VISION_LLM_PROVIDER`, `DIS_VISION_LLM_API_KEY`, `DIS_VISION_LLM_MODEL` and `DIS_VISION_LLM_BASE_URL`. When any dedicated vision setting is supplied, DIS does not mix in text-provider credentials or endpoints; otherwise it reuses the complete `DIS_LLM_*` configuration for observations about visual hierarchy, spacing, typography, color and component consistency. Optional route exploration follows same-origin anchor links only, with a configurable hard limit. The score is heuristic, not a WCAG certification or objective design-quality guarantee.
+
+## Visual comparison and approved code improvements
+
+- `POST /api/v1/visual/compare` inspects baseline and candidate URLs at desktop, tablet and mobile sizes, calculates pixel similarity and changed-pixel ratios, and compares deterministic finding titles. Pixel similarity measures change, not quality.
+- `POST /api/v1/improvements/propose` reads up to four existing UI source files from a GitHub branch (public repos can be read anonymously; private repos need `DIS_GITHUB_TOKEN`) and asks the configured model for replacement contents tied to supplied visual findings. It enforces source path and file-size limits, redacts likely credentials, signs the proposal and returns a reviewable unified diff. Proposing never writes to GitHub.
+- `POST /api/v1/improvements/apply` requires a signed, unexpired proposal and explicit `approval: true`. It uses `DIS_GITHUB_WRITE_TOKEN` to create a separate branch, commit approved files and open a pull request. It never merges the pull request. Proposal signatures use a separate server-only `DIS_PROPOSAL_SIGNING_KEY`; do not reuse the dashboard API key.
+- Configure `DIS_GITHUB_WRITE_TOKEN` with fine-grained repository permissions for **Contents: read/write** and **Pull requests: read/write**. Keep `DIS_GITHUB_TOKEN` read-only for inspection. Set a random, independent `DIS_PROPOSAL_SIGNING_KEY` on the server. Never expose any of these secrets to the browser.
+- The dashboard requires explicit consent before selected source files and findings are sent to the configured LLM provider, then lets the user review the diff and check a separate approval box before the PR is created. The code proposal is limited to selected existing UI source files; it does not install dependencies, run the target repository, or deploy it.
 
 ## Browser dashboard
 
@@ -105,7 +114,9 @@ DIS includes a browser-based workspace served by the FastAPI application:
 - Open `http://127.0.0.1:8000/` for the dashboard.
 - **Overview** shows API health, provider mode, and recent inspections.
 - **Repository inspector** accepts a GitHub URL or `owner/name`, with an optional branch/tag/commit ref.
-- **Visual inspection** opens a public web URL in Chromium, captures desktop/tablet/mobile screenshots, and displays responsive and accessibility findings.
+- **Visual inspection** opens a public web URL in Chromium, captures desktop/tablet/mobile screenshots, optionally explores same-origin routes, and displays deterministic and multimodal design findings.
+- **Visual comparison** compares two deployed versions and shows screenshot change metrics plus resolved/new findings.
+- **UI improvement proposal** generates a bounded frontend patch for selected GitHub files, displays the diff, and opens a PR only after explicit approval.
 - **Architecture report** displays detected stacks/frameworks, entry points, routes, components/styles, design-system signals, declared commands, sampled file evidence, and limitations.
 - **Inspection history** is stored in the current browser's local storage. It can be cleared from the History page.
 - If the server requires `DIS_REPOSITORY_INSPECTION_API_KEY`, enter that shared key in dashboard settings. It is stored in session storage for the current browser tab only. Do not enter a GitHub personal access token in the browser; configure `DIS_GITHUB_TOKEN` on the server.
@@ -149,6 +160,9 @@ The container runs as a non-root user, includes a health check, and stores SQLit
 - `GET /api/v1/provider` — safe provider configuration status (never returns the key)
 - `POST /api/v1/design/runs` — dynamically select specialists and orchestrate a design brief
 - `POST /api/v1/visual/inspect` — capture and audit a public web page at three viewport sizes
+- `POST /api/v1/visual/compare` — compare before/after screenshots and deterministic findings
+- `POST /api/v1/improvements/propose` — generate a signed, reviewable frontend patch proposal
+- `POST /api/v1/improvements/apply` — create a PR from an approved proposal
 - `POST /api/v1/permissions/evaluate` — evaluate an action against autonomy policy
 
 Example:

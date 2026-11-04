@@ -6,6 +6,8 @@ services:
     image: design-intelligence-system:local
     container_name: dis
     restart: unless-stopped
+    security_opt:
+      - seccomp:./playwright-seccomp.json
     ports:
       - "${DIS_PORT:-8000}:8000"
     env_file:

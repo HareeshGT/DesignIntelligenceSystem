@@ -7,9 +7,11 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.repositories import router as repositories_router
 from app.api.visual import router as visual_router
+from app.api.improvements import router as improvements_router
 from app.core.models import ApprovalRequest, DesignRequest
 from app.core.permissions import PermissionPolicy
 from app.services.llm import LLMProvider
+from app.services.visual_design import VisualDesignAnalyzer
 from app.services.memory import ProjectMemory
 from app.services.orchestrator import Orchestrator
 
@@ -23,6 +25,7 @@ app = FastAPI(
 )
 app.include_router(repositories_router)
 app.include_router(visual_router)
+app.include_router(improvements_router)
 WEB_STATIC_DIR = Path(__file__).parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=WEB_STATIC_DIR), name="static")
 
@@ -55,11 +58,15 @@ def list_agents():
 @app.get("/api/v1/provider")
 def provider_status():
     """Expose safe provider metadata only; never return credentials."""
+    vision_provider = VisualDesignAnalyzer().provider
     return {
         "configured": llm.enabled,
         "provider": llm.provider if llm.enabled else None,
         "model": llm.model if llm.enabled else None,
         "mode": "llm" if llm.enabled else "deterministic",
+        "vision_configured": vision_provider.enabled,
+        "vision_provider": vision_provider.provider if vision_provider.enabled else None,
+        "vision_model": vision_provider.model if vision_provider.enabled else None,
     }
 
 

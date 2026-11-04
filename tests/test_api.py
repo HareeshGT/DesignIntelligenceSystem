@@ -89,3 +89,69 @@ def test_visual_inspection_rejects_localhost_before_browser_launch(monkeypatch):
         json={"url": "http://localhost:8000"},
     )
     assert response.status_code == 400
+
+
+def test_improvement_endpoints_require_shared_api_key(monkeypatch):
+    monkeypatch.delenv("DIS_REPOSITORY_INSPECTION_API_KEY", raising=False)
+    response = client.post(
+        "/api/v1/improvements/propose",
+        json={"repository":"owner/repo","target_files":["src/App.tsx"],"findings":[{"category":"visual","severity":"medium","title":"test","description":"test issue","evidence":"visible in screenshot","recommendation":"adjust layout"}],"source_sharing_consent":True},
+    )
+    assert response.status_code == 503
+
+
+def test_improvement_endpoints_reject_invalid_api_key(monkeypatch):
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "expected-secret")
+    response = client.post(
+        "/api/v1/improvements/propose",
+        headers={"X-DIS-API-Key":"wrong"},
+        json={"repository":"owner/repo","target_files":["src/App.tsx"],"findings":[{"category":"visual","severity":"medium","title":"test","description":"test issue","evidence":"visible in screenshot","recommendation":"adjust layout"}],"source_sharing_consent":True},
+    )
+    assert response.status_code == 401
+
+
+def test_visual_compare_requires_shared_key_when_configured(monkeypatch):
+    monkeypatch.setenv("DIS_REPOSITORY_INSPECTION_API_KEY", "compare-secret")
+    monkeypatch.delenv("DIS_GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("DIS_LLM_API_KEY", raising=False)
+    response = client.post(
+        "/api/v1/visual/compare",
+        json={"baseline_url":"https://before.example","candidate_url":"https://after.example"},
+    )
+    assert response.status_code == 401
+
+
+def test_visual_api_key_comparison_handles_non_ascii_header_values():
+    from app.api.visual import _api_key_matches
+
+    assert _api_key_matches("é", "expected-secret") is False
+    assert _api_key_matches("expected-secret", "expected-secret") is True
+
+
+def test_provider_status_uses_resolved_vision_provider_configuration(monkeypatch):
+    monkeypatch.setenv("DIS_LLM_PROVIDER", "openai-compatible")
+    monkeypatch.setenv("DIS_LLM_API_KEY", "text-secret")
+    monkeypatch.setenv("DIS_LLM_MODEL", "text-model")
+    monkeypatch.setenv("DIS_LLM_BASE_URL", "https://text-provider.example/v1")
+    for name in ("DIS_VISION_LLM_PROVIDER", "DIS_VISION_LLM_API_KEY", "DIS_VISION_LLM_MODEL", "DIS_VISION_LLM_BASE_URL"):
+        monkeypatch.delenv(name, raising=False)
+
+    response = client.get("/api/v1/provider")
+    assert response.status_code == 200
+    assert response.json()["vision_configured"] is True
+    assert response.json()["vision_provider"] == "openai-compatible"
+
+
+def test_provider_status_does_not_report_partial_vision_config_as_enabled(monkeypatch):
+    monkeypatch.setenv("DIS_LLM_API_KEY", "text-secret")
+    monkeypatch.setenv("DIS_LLM_MODEL", "text-model")
+    monkeypatch.setenv("DIS_LLM_BASE_URL", "https://text-provider.example/v1")
+    monkeypatch.delenv("DIS_VISION_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("DIS_VISION_LLM_API_KEY", "")
+    monkeypatch.setenv("DIS_VISION_LLM_MODEL", "vision-model")
+    monkeypatch.delenv("DIS_VISION_LLM_BASE_URL", raising=False)
+
+    response = client.get("/api/v1/provider")
+    assert response.status_code == 200
+    assert response.json()["vision_configured"] is False
+    assert response.json()["vision_provider"] is None

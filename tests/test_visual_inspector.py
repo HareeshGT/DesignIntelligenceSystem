@@ -38,6 +38,7 @@ def test_request_defaults_to_three_viewports_capture():
     request = VisualInspectionRequest(url="https://example.com")
     assert request.capture_screenshots is True
     assert request.page_timeout_ms == 20000
+    assert request.analyze_with_vision is False
 
 
 def test_detects_horizontal_overflow_and_accessibility_issues():
@@ -68,7 +69,7 @@ def test_visual_inspector_renders_three_viewports(monkeypatch):
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            body = b"<html><head><title>Visual test</title></head><body><main><h1>Preview</h1><button>Continue</button></main></body></html>"
+            body = b"<html><head><title>Visual test</title></head><body><main><h1>Preview</h1><a href='/about'>About</a><button>Continue</button></main></body></html>"
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -91,8 +92,10 @@ def test_visual_inspector_renders_three_viewports(monkeypatch):
         result = VisualInspector().inspect(VisualInspectionRequest(
             url=f"http://127.0.0.1:{server.server_port}/",
             capture_screenshots=False,
+            crawl_internal_routes=True,
         ))
         assert result.page_title == "Visual test"
+        assert len(result.inspected_pages) == 2
         assert [item.name for item in result.viewports] == ["desktop", "tablet", "mobile"]
         assert all(item.screenshot_base64 is None for item in result.viewports)
         assert result.status_code == 200
