@@ -17,6 +17,7 @@ class ImprovementProposalRequest(BaseModel):
     target_files: list[str] = Field(min_length=1, max_length=4)
     findings: list[ImprovementFinding] = Field(min_length=1, max_length=20)
     visual_summary: str = Field(default="", max_length=1600)
+    source_sharing_consent: Literal[True]
 
 class ImprovementApplyRequest(BaseModel):
     proposal_token: str = Field(min_length=20, max_length=500000)
