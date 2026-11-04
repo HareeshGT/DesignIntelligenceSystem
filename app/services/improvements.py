@@ -18,8 +18,9 @@ from app.core.improvement_models import ImprovementProposalRequest
 from app.services.llm import LLMProvider, ProviderError
 
 API_ROOT = "https://api.github.com"
-ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte", ".html", ".css", ".scss", ".dart", ".swift", ".kt", ".kts", ".qml", ".ui", ".m", ".mm"}
+ALLOWED_SUFFIXES = {".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte", ".html", ".htm", ".jinja", ".jinja2", ".j2", ".tmpl", ".tpl", ".mdx", ".css", ".scss", ".sass", ".less", ".dart", ".swift", ".kt", ".kts", ".qml", ".ui", ".m", ".mm", ".py", ".go", ".rs"}
 MAX_SOURCE_BYTES = 32_000
+MAX_DISCOVERY_FILES = 120
 MAX_PROPOSAL_BYTES = 32_000
 FORBIDDEN_PATH_PARTS = {"api", "auth", "backend", "database", "db", "infra", "middleware", "migrations", "scripts", "server", "test", "tests"}
 FORBIDDEN_SOURCE_NAMES = {"api.ts", "api.js", "auth.ts", "auth.js", "server.ts", "server.js", "middleware.ts", "middleware.js", "package.swift", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "webpack.config.js", "webpack.config.ts", "next.config.js", "next.config.ts", "vite.config.js", "vite.config.ts", "metro.config.js", "electron.vite.config.ts"}
@@ -48,18 +49,59 @@ def _repository_parts(value: str) -> tuple[str, str]:
         raise ImprovementError("Use a GitHub repository URL or owner/name.")
     return parts[0], parts[1]
 
-def _safe_source_path(path: str) -> bool:
-    if not path or "\\" in path or path.startswith("/") or ".." in path.split("/") or path.startswith("."):
+def _safe_scope_path(path: str) -> bool:
+    """Validate a repository-relative file or directory scope; '.' means repository root."""
+    if path == ".":
+        return True
+    if not path or "\\\\" in path or path.startswith("/") or path.startswith(".") or ".." in path.split("/"):
         return False
     parts = [part.lower() for part in path.split("/")]
-    filename = parts[-1]
-    if any(part.startswith(".") or part.split(".", 1)[0] in FORBIDDEN_PATH_PARTS for part in parts):
+    return not any(part.startswith(".") or part.split(".", 1)[0] in FORBIDDEN_PATH_PARTS for part in parts)
+
+
+def _safe_source_path(path: str) -> bool:
+    if not _safe_scope_path(path) or path == ".":
         return False
-    if filename in FORBIDDEN_SOURCE_NAMES or filename.startswith(("api.", "auth.", "server.", "middleware.")):
+    filename = path.split("/")[-1].lower()
+    if filename in FORBIDDEN_SOURCE_NAMES or filename.endswith((".config.js", ".config.ts", ".config.mjs", ".config.cjs")):
         return False
-    if filename.endswith((".config.js", ".config.ts", ".config.mjs", ".config.cjs")):
-        return False
-    return any(path.lower().endswith(suffix) for suffix in ALLOWED_SUFFIXES)
+    return any(filename.endswith(suffix) for suffix in ALLOWED_SUFFIXES)
+
+
+def _ui_source_score(path: str, content: str) -> int:
+    """Content-first UI relevance classifier. Extensions only establish candidacy."""
+    import re
+
+    text = content.lower()
+    suffix = next((ext for ext in ALLOWED_SUFFIXES if path.lower().endswith(ext)), "")
+    score = 0
+    if suffix in {".html", ".htm", ".jinja", ".jinja2", ".j2", ".tmpl", ".tpl", ".css", ".scss", ".sass", ".less", ".tsx", ".jsx", ".vue", ".svelte", ".dart", ".swift", ".kt", ".kts", ".qml", ".ui", ".mdx"}:
+        score += 3
+    if re.search(r"<(?:!doctype|html|body|main|nav|header|footer|form|button|input|div|section|template)\\b", text):
+        score += 5
+    if re.search(r"\\b(react|jsx|tsx|vue|svelte|component|useeffect|usestate|stylesheet|tailwind|cssmodule)\\b", text):
+        score += 3
+    if re.search(r"\\b(st\\.(?:title|header|write|markdown|button|selectbox|text_input|columns|container)|gr\\.(?:blocks|interface|row|column|textbox|button)|dash\\.(?:html|dcc)|tkinter|pyqt|pyside|kivy)\\b", text):
+        score += 8
+    if re.search(r"\\b(render_template|render_template_string|templateresponse|htmlresponse|jinja2?\\.environment|mark_safe)\\b", text):
+        score += 8
+    if re.search(r"\\b(components?\\s*=|html\\s*=|template\\s*=|page\\s*=|render_[a-z_]+|build_[a-z_]*(?:page|view|screen|dashboard))", text):
+        score += 3
+    has_route = bool(re.search(r"@(?:app|router|bp|blueprint)\\.(?:get|post|put|patch|route)\\s*\\(", text))
+    ui_route = bool(re.search(r"""['"]/(?:ui|dashboard|frontend|pages?|screens?|settings|projects|design|improvements)(?:/|['"])""", text))
+    if has_route and (ui_route or re.search(r"render_template|htmlresponse|templateresponse|response_class\\s*=\\s*html", text)):
+        score += 8
+    if has_route and re.search(r"(?:dashboard|frontend|page|screen|view|ui)_?(?:data|state|config|summary)|(?:data|state|config|summary)_for_(?:dashboard|frontend|page|screen|ui)", text):
+        score += 4
+    if suffix == ".py" and score < 8:
+        return 0
+    if suffix in {".go", ".rs"} and score < 5:
+        return 0
+    return score
+
+
+def _scope_matches(path: str, scope: str) -> bool:
+    return scope == "." or path == scope or path.startswith(scope.rstrip("/") + "/")
 
 class ImprovementService:
     def __init__(self, llm: LLMProvider | None = None, read_token: str | None = None, write_token: str | None = None):
@@ -103,20 +145,38 @@ class ImprovementService:
         ref_data = self._request("GET", f"{base}/git/ref/heads/{quote(ref, safe='')}")
         commit_sha = ref_data["object"]["sha"]
         if len(set(request.target_files)) != len(request.target_files):
-            raise ImprovementError("Duplicate source file paths are not allowed.")
-        sources = []
-        for path in request.target_files:
-            if not _safe_source_path(path):
-                raise ImprovementError(f"File path is not allowed for automated UI changes: {path}")
+            raise ImprovementError("Duplicate source paths are not allowed.")
+        if any(not _safe_scope_path(path) for path in request.target_files):
+            raise ImprovementError("Use safe repository-relative paths. Directories and '.' are supported; hidden, traversal, test, and infrastructure paths are not.")
+        tree = self._request("GET", f"{base}/git/trees/{commit_sha}", params={"recursive": "1"})
+        if tree.get("truncated"):
+            raise ImprovementError("Repository is too large for complete UI discovery. Supply up to four specific file or directory paths.")
+        tree_files = [item["path"] for item in tree.get("tree", []) if item.get("type") == "blob"]
+        explicit_files = {path for path in request.target_files if _safe_source_path(path)}
+        candidates = [path for path in tree_files if _safe_source_path(path) and any(_scope_matches(path, scope) for scope in request.target_files)]
+        missing = explicit_files.difference(tree_files)
+        if missing:
+            raise ImprovementError("Source file not found in repository: " + ", ".join(sorted(missing)))
+        candidates = candidates[:MAX_DISCOVERY_FILES]
+        inspected = []
+        for path in candidates:
             data = self._request("GET", f"{base}/contents/{quote(path, safe='/')}", params={"ref": ref})
             if data.get("type") != "file" or data.get("encoding") != "base64":
-                raise ImprovementError(f"Only regular text source files can be proposed: {path}")
-            raw = base64.b64decode(data["content"])
+                continue
+            try:
+                raw = base64.b64decode(data["content"], validate=True)
+                source = raw.decode("utf-8")
+            except (ValueError, UnicodeDecodeError):
+                continue
             if len(raw) > MAX_SOURCE_BYTES:
-                raise ImprovementError(f"Source file exceeds the {MAX_SOURCE_BYTES}-byte proposal limit: {path}")
-            source = raw.decode("utf-8", errors="replace")
-            source = _redact_secrets(source)
-            sources.append({"path": path, "sha": data["sha"], "content": source})
+                continue
+            score = _ui_source_score(path, source)
+            if score:
+                inspected.append((score, path, data["sha"], _redact_secrets(source)))
+        inspected.sort(key=lambda item: (-item[0], item[1]))
+        sources = [{"path": path, "sha": sha, "content": content} for _, path, sha, content in inspected[:4]]
+        if not sources:
+            raise ImprovementError("No UI source files were identified in the selected paths. Discovery inspects file contents and UI responsibilities, including Python page renderers and UI-facing routes.")
         prompt = {"repository": f"{owner}/{name}", "ref": ref, "design_brief": request.design_brief, "visual_summary": request.visual_summary, "findings": [finding.model_dump() for finding in request.findings[:20]], "source_files": sources, "task": "Implement the user's design brief in the supplied UI files. Use specialist design context and evidence-backed findings as guidance. Preserve existing behavior, conventions, accessibility, responsiveness, and design-system consistency. Return complete replacement contents for changed files only."}
         try:
             result = self.llm.complete_json(
