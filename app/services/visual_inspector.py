@@ -197,6 +197,7 @@ class VisualInspector:
             with sync_playwright() as playwright:
                 browser: Browser = playwright.chromium.launch(
                     headless=True,
+                    chromium_sandbox=True,
                     args=["--disable-dev-shm-usage"],
                 )
                 try:
