@@ -17,6 +17,12 @@ MAX_TREE_ENTRIES = 20_000
 MAX_FILES_TO_READ = 24
 MAX_FILE_BYTES = 32_000
 MAX_TOTAL_BYTES = 240_000
+SECRET_PATTERNS = [
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\s*([:=])\s*['\"`]?([A-Za-z0-9_./+=:-]{12,})"),
+    re.compile(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]{16,}"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
+]
 SKIP_PARTS = {
     ".git", ".next", ".nuxt", ".venv", "venv", "node_modules", "dist",
     "build", "coverage", "vendor", "__pycache__", "target",
@@ -167,6 +173,9 @@ class GitHubRepositoryInspector:
             clipped = raw[:remaining]
             total_bytes += len(clipped)
             text = clipped.decode("utf-8", errors="replace")
+            # Redact likely embedded credentials before any model prompt is assembled.
+            for pattern in SECRET_PATTERNS:
+                text = pattern.sub("[REDACTED]", text)
             contents[path] = text
             evidence.append(RepositoryFileEvidence(
                 path=path, category=_category(path), bytes_read=len(clipped),
