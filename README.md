@@ -105,7 +105,9 @@ DIS includes a browser-based workspace served by the FastAPI application:
 - Open `http://127.0.0.1:8000/` for the dashboard.
 - **Overview** shows API health, provider mode, and recent inspections.
 - **Repository inspector** accepts a GitHub URL or `owner/name`, with an optional branch/tag/commit ref.
-- **Visual inspection** opens a public web URL in Chromium, captures desktop/tablet/mobile screenshots, optionally explores same-origin routes, and displays deterministic and multimodal design findings.\n- **Visual comparison** compares two deployed versions and shows screenshot change metrics plus resolved/new findings.\n- **UI improvement proposal** generates a bounded frontend patch for selected GitHub files, displays the diff, and opens a PR only after explicit approval.
+- **Visual inspection** opens a public web URL in Chromium, captures desktop/tablet/mobile screenshots, optionally explores same-origin routes, and displays deterministic and multimodal design findings.
+- **Visual comparison** compares two deployed versions and shows screenshot change metrics plus resolved/new findings.
+- **UI improvement proposal** generates a bounded frontend patch for selected GitHub files, displays the diff, and opens a PR only after explicit approval.
 - **Architecture report** displays detected stacks/frameworks, entry points, routes, components/styles, design-system signals, declared commands, sampled file evidence, and limitations.
 - **Inspection history** is stored in the current browser's local storage. It can be cleared from the History page.
 - If the server requires `DIS_REPOSITORY_INSPECTION_API_KEY`, enter that shared key in dashboard settings. It is stored in session storage for the current browser tab only. Do not enter a GitHub personal access token in the browser; configure `DIS_GITHUB_TOKEN` on the server.
