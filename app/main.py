@@ -59,14 +59,15 @@ def list_agents():
 @app.get("/api/v1/provider")
 def provider_status():
     """Expose safe provider metadata only; never return credentials."""
+    vision_provider = VisualDesignAnalyzer().provider
     return {
         "configured": llm.enabled,
         "provider": llm.provider if llm.enabled else None,
         "model": llm.model if llm.enabled else None,
         "mode": "llm" if llm.enabled else "deterministic",
-        "vision_configured": VisualDesignAnalyzer().provider.enabled,
-        "vision_provider": VisualDesignAnalyzer().provider.provider if VisualDesignAnalyzer().provider.enabled else None,
-        "vision_model": VisualDesignAnalyzer().provider.model if VisualDesignAnalyzer().provider.enabled else None,
+        "vision_configured": vision_provider.enabled,
+        "vision_provider": vision_provider.provider if vision_provider.enabled else None,
+        "vision_model": vision_provider.model if vision_provider.enabled else None,
     }
 
 
