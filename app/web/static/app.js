@@ -478,7 +478,15 @@ $("visual-form").addEventListener("submit", inspectVisual);
 const initial = location.hash.replace("#", "");
 navigate(["overview","inspector","visual","history"].includes(initial) ? initial : "overview");
 renderHistory();
+function updateLiveClock() {
+  const clock = $("live-clock");
+  if (clock) clock.textContent = new Intl.DateTimeFormat(undefined, {hour:"2-digit", minute:"2-digit", second:"2-digit"}).format(new Date());
+}
+updateLiveClock();
 loadSystemStatus();
+setInterval(updateLiveClock, 1000);
+setInterval(() => { if (!document.hidden) loadSystemStatus(); }, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) loadSystemStatus(); });
 
 async function compareVersions(event) {
   event.preventDefault();
