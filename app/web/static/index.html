@@ -22,6 +22,7 @@
       <nav class="nav">
         <a class="nav-item active" href="#overview" data-view="overview"><span class="nav-icon">◫</span> Overview</a>
         <a class="nav-item" href="#inspector" data-view="inspector"><span class="nav-icon">⌕</span> Repository inspector</a>
+        <a class="nav-item" href="#visual" data-view="visual"><span class="nav-icon">◉</span> Visual inspection</a>
         <a class="nav-item" href="#history" data-view="history"><span class="nav-icon">↺</span> Inspection history</a>
       </nav>
       <div class="sidebar-bottom">
@@ -84,6 +85,22 @@
         </div>
         <div class="loading-panel panel hidden" id="loading-panel"><div class="loader"></div><div><b>Mapping your repository</b><p id="loading-message">Reading repository metadata and structure…</p></div><span class="loading-label">ANALYZING</span></div>
         <section id="report-section" class="report-section hidden"></section>
+      </section>
+
+
+      <section class="view" id="view-visual">
+        <div class="page-heading simple-heading"><div><div class="eyebrow">VISUAL INTELLIGENCE <span class="eyebrow-line"></span></div><h1>Visual <em>inspection.</em></h1><p class="lede">Open a public web application in a real browser. DIS captures desktop, tablet and mobile views and audits observable layout and accessibility signals.</p></div></div>
+        <div class="panel visual-form-panel">
+          <form id="visual-form">
+            <label for="visual-url">Public application URL</label>
+            <div class="input-wrap"><span>↗</span><input id="visual-url" name="url" type="url" placeholder="https://your-app.example.com" autocomplete="url" required></div>
+            <div class="security-note"><span>◇</span><p><b>Isolated, read-only browser inspection.</b><br>DIS does not log in, submit forms, click destructive controls or modify the target. Local and private network addresses are blocked.</p></div>
+            <button class="primary-button submit-button" id="visual-submit" type="submit"><span class="button-label">Inspect application UI</span><span class="button-arrow">→</span></button>
+            <p class="form-error" id="visual-error" role="alert"></p>
+          </form>
+        </div>
+        <div class="loading-panel panel hidden" id="visual-loading"><div class="loader"></div><div><b>Rendering application views</b><p>Capturing desktop, tablet and mobile layouts…</p></div><span class="loading-label">INSPECTING</span></div>
+        <section id="visual-report" class="report-section hidden"></section>
       </section>
 
       <section class="view" id="view-history">
