@@ -19,6 +19,14 @@ class ProviderError(RuntimeError):
     """Raised when a configured model provider cannot return a valid response."""
 
 
+_OFFICIAL_PROVIDER_HOSTS = {
+    "openai": "api.openai.com",
+    "anthropic": "api.anthropic.com",
+    "mistral": "api.mistral.ai",
+    "gemini": "generativelanguage.googleapis.com",
+}
+
+
 class LLMProvider:
     """Small synchronous provider adapter for OpenAI-compatible and Anthropic APIs.
 
@@ -49,6 +57,18 @@ class LLMProvider:
     @property
     def enabled(self) -> bool:
         return bool(self.api_key and self.model)
+
+    def _validate_provider_endpoint(self) -> None:
+        """Prevent a known provider profile from silently targeting another provider."""
+        host = (urlparse(self.base_url).hostname or "").lower() if self.base_url else ""
+        if not host or self.provider == "openai-compatible":
+            return
+        for provider, official_host in _OFFICIAL_PROVIDER_HOSTS.items():
+            if host == official_host and self.provider != provider:
+                raise ProviderError(
+                    f"The selected {self.provider} provider is configured with the {provider} API endpoint. "
+                    "Correct the Custom API base URL in Settings or restore this provider's default endpoint."
+                )
 
     def _validate_custom_base_url(self) -> None:
         if not self.base_url:
@@ -119,6 +139,7 @@ class LLMProvider:
         return message[:300]
 
     def _openai_compatible(self, system: str, prompt: str, max_tokens: int = 1800) -> str:
+        self._validate_provider_endpoint()
         self._validate_custom_base_url()
         base = self.base_url or "https://api.openai.com/v1"
         response = httpx.post(
@@ -198,6 +219,7 @@ class LLMProvider:
     def _openai_compatible_images(
         self, system: str, prompt: str, images: list[dict[str, str]]
     ) -> str:
+        self._validate_provider_endpoint()
         self._validate_custom_base_url()
         base = self.base_url or "https://api.openai.com/v1"
         content = [{"type": "text", "text": prompt}]
