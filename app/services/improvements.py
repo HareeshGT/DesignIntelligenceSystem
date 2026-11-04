@@ -81,6 +81,8 @@ def _ui_source_score(path: str, content: str) -> int:
         score += 5
     if re.search(r"\b(react|jsx|tsx|vue|svelte|component|useeffect|usestate|stylesheet|tailwind|cssmodule)\b", text):
         score += 3
+    if re.search(r"\b(document\.(?:queryselector|getelementbyid)|window\.|addeventlistener|localstorage|sessionstorage|fetch\s*\(|xmlhttprequest)\b", text):
+        score += 5
     if re.search(r"\b(st\.(?:title|header|write|markdown|button|selectbox|text_input|columns|container)|gr\.(?:blocks|interface|row|column|textbox|button)|dash\.(?:html|dcc)|tkinter|pyqt|pyside|kivy)\b", text):
         score += 8
     if re.search(r"\b(render_template|render_template_string|templateresponse|htmlresponse|jinja2?\.environment|mark_safe)\b", text):
