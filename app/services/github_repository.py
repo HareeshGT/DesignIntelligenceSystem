@@ -101,10 +101,10 @@ def _category(path: str) -> str:
 class GitHubRepositoryInspector:
     """Read-only repository inventory. It never checks out or executes repository code."""
 
-    def __init__(self, llm: LLMProvider | None = None, timeout: float = 15.0):
+    def __init__(self, llm: LLMProvider | None = None, timeout: float = 15.0, token: str | None = None):
         self.llm = llm
         self.timeout = timeout
-        self.token = os.getenv("DIS_GITHUB_TOKEN", "").strip()
+        self.token = (token if token is not None else os.getenv("DIS_GITHUB_TOKEN", "")).strip()
 
     def _request(self, url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {
