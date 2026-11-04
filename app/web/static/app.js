@@ -307,7 +307,8 @@ $("settings-open-secondary").addEventListener("click", openSettings);
 $("save-key").addEventListener("click", () => {
   const key = $("api-key-input").value.trim();
   if (key) sessionStorage.setItem(KEY_STORAGE, key); else sessionStorage.removeItem(KEY_STORAGE);
-  saveActiveProviderProfile();\n  const values = {provider:$("llm-provider").value,model:$("llm-model").value.trim(),baseUrl:$("llm-base-url").value.trim(),llmKey:$("llm-api-key").value.trim(),githubRead:$("github-read-token").value.trim(),githubWrite:$("github-write-token").value.trim()};
+  saveActiveProviderProfile();
+  const values = {provider:$("llm-provider").value,model:$("llm-model").value.trim(),baseUrl:$("llm-base-url").value.trim(),llmKey:$("llm-api-key").value.trim(),githubRead:$("github-read-token").value.trim(),githubWrite:$("github-write-token").value.trim()};
   Object.entries(values).forEach(([name,value]) => {const storage=CREDENTIAL_FIELDS[name];if(value)sessionStorage.setItem(storage,value);else sessionStorage.removeItem(storage);});
   $("settings-dialog").close();loadSystemStatus();
 });
