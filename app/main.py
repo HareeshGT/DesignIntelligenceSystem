@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from dotenv import load_dotenv\nfrom fastapi import FastAPI
 from app.core.models import ApprovalRequest, DesignRequest
 from app.core.permissions import PermissionPolicy
 from app.services.llm import LLMProvider
