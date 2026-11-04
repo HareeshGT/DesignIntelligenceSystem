@@ -68,7 +68,7 @@ def test_visual_inspector_renders_three_viewports(monkeypatch):
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            body = b"<html><head><title>Visual test</title></head><body><main><h1>Preview</h1><a href="/about">About</a><button>Continue</button></main></body></html>"
+            body = b"<html><head><title>Visual test</title></head><body><main><h1>Preview</h1><a href='/about'>About</a><button>Continue</button></main></body></html>"
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
