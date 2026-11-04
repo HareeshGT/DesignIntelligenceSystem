@@ -424,6 +424,10 @@ async function proposeImprovement(event) {
     $("improvement-error").textContent = "Run a visual inspection first so the proposal can use real findings.";
     return;
   }
+  if (!$("source-consent").checked) {
+    $("improvement-error").textContent = "Confirm consent before sending selected source files to the configured model provider.";
+    return;
+  }
   const paths = $("improvement-files").value.split(",").map(value => value.trim()).filter(Boolean);
   if (!paths.length || paths.length > 4) {
     $("improvement-error").textContent = "Provide between one and four existing frontend source paths.";
