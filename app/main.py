@@ -16,6 +16,7 @@ from app.services.llm import LLMProvider, request_llm
 from app.services.visual_design import VisualDesignAnalyzer
 from app.services.memory import ProjectMemory
 from app.services.orchestrator import Orchestrator
+from app.keep_alive import start_keep_alive
 
 # Load local development configuration before constructing provider clients.
 load_dotenv()
@@ -24,6 +25,7 @@ app = FastAPI(
     title="Design Intelligence System",
     version="0.4.0",
     description="A modular design intelligence API with repository and browser-based visual inspection.",
+    on_startup=[start_keep_alive],
 )
 app.include_router(repositories_router)
 app.include_router(visual_router)
