@@ -211,16 +211,16 @@ class VisualInspector:
                             service_workers="block",
                             accept_downloads=False,
                         )
-                        page = context.new_page()
-                        page.route("**/*", _safe_route)
-                        # Inspection does not need live sockets. Block WebSockets explicitly:
-                        # Playwright's ordinary request route does not cover WebSocket handshakes.
-                        page.route_web_socket(
+                        # Install network guards on the context before creating pages so
+                        # popups and every page in this viewport inherit the same policy.
+                        context.route("**/*", _safe_route)
+                        context.route_web_socket(
                             "**/*",
                             lambda websocket: websocket.close(
                                 code=1008, reason="WebSocket access is disabled during inspection"
                             ),
                         )
+                        page = context.new_page()
                         try:
                             response = page.goto(
                                 target, wait_until="domcontentloaded",
@@ -252,6 +252,14 @@ class VisualInspector:
                                             break
                             status_code = response.status if response else status_code
                             findings.extend(_findings(metrics, name))
+                            if response and response.status >= 400:
+                                findings.append(VisualFinding(
+                                    category="availability", severity="high",
+                                    title="Target page returned an HTTP error",
+                                    description="The inspected page did not return a successful HTTP response.",
+                                    evidence=f"HTTP status: {response.status} at {page.url}",
+                                    recommendation="Confirm the preview URL, deployment health, and requested route before evaluating design quality.",
+                                ))
                             for key, value in metrics.items():
                                 if isinstance(value, (int, float)) and not isinstance(value, bool):
                                     aggregate[key] = max(aggregate.get(key, 0), value)
@@ -285,8 +293,14 @@ class VisualInspector:
                                 viewport={"width": 1440, "height": 1000},
                                 service_workers="block", accept_downloads=False,
                             )
+                            route_context.route("**/*", _safe_route)
+                            route_context.route_web_socket(
+                                "**/*",
+                                lambda websocket: websocket.close(
+                                    code=1008, reason="WebSocket access is disabled during inspection"
+                                ),
+                            )
                             route_page = route_context.new_page()
-                            route_page.route("**/*", _safe_route)
                             try:
                                 route_response = route_page.goto(
                                     route_url, wait_until="domcontentloaded",
@@ -295,6 +309,14 @@ class VisualInspector:
                                 route_page.wait_for_timeout(300)
                                 route_metrics = _collect_metrics(route_page)
                                 findings.extend(_findings(route_metrics, "desktop"))
+                                if route_response and route_response.status >= 400:
+                                    findings.append(VisualFinding(
+                                        category="availability", severity="high",
+                                        title="Linked page returned an HTTP error",
+                                        description="A same-origin page linked from the target did not return a successful HTTP response.",
+                                        evidence=f"HTTP status: {route_response.status} at {route_page.url}",
+                                        recommendation="Check the linked route and remove or correct broken navigation targets.",
+                                    ))
                                 inspected_pages.append(InspectedPage(
                                     url=route_page.url,
                                     title=str(route_metrics.get("title", "")),
@@ -349,6 +371,8 @@ class VisualInspector:
         unique = {(item.category, item.title, item.evidence): item for item in findings}
         findings = list(unique.values())
         score, grade = _score(findings)
+        if inspected_pages and inspected_pages[0].status_code is not None and inspected_pages[0].status_code >= 400:
+            score, grade = 0, "F"
         return VisualInspectionResponse(
             inspected_url=target,
             page_title=page_title,

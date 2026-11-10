@@ -74,7 +74,8 @@ def test_multimodal_provider_rejects_null_text_content(monkeypatch):
             return {"choices": [{"message": {"content": None}}]}
 
     monkeypatch.setattr("app.services.llm.httpx.post", lambda *args, **kwargs: Response())
-    provider = LLMProvider(provider="openai-compatible", api_key="test", model="vision-model")
+    monkeypatch.setattr("app.services.llm.LLMProvider._validate_custom_base_url", lambda self: None)
+    provider = LLMProvider(provider="openai-compatible", api_key="test", model="vision-model", base_url="https://provider.example/v1")
     with pytest.raises(ProviderError, match="no text content"):
         provider.analyze_images_json("system", "review", [{"data": "aGVsbG8="}])
 
@@ -133,6 +134,8 @@ def test_custom_model_endpoint_rejects_private_hosts():
     [
         ("mistral", "https://api.mistral.ai/v1"),
         ("gemini", "https://generativelanguage.googleapis.com/v1beta/openai"),
+        ("groq", "https://api.groq.com/openai/v1"),
+        ("openrouter", "https://openrouter.ai/api/v1"),
     ],
 )
 def test_provider_has_dedicated_default_endpoint(provider, expected_base):
@@ -252,7 +255,8 @@ def test_complete_json_rejects_non_text_provider_content_as_provider_error(monke
             return {"choices": [{"message": {"content": [{"type": "image"}]}}]}
 
     monkeypatch.setattr("app.services.llm.httpx.post", lambda *args, **kwargs: Response())
-    provider = LLMProvider(provider="openai-compatible", api_key="test", model="test-model")
+    monkeypatch.setattr("app.services.llm.LLMProvider._validate_custom_base_url", lambda self: None)
+    provider = LLMProvider(provider="openai-compatible", api_key="test", model="test-model", base_url="https://provider.example/v1")
     with pytest.raises(ProviderError, match="content must be text"):
         provider.complete_json("system", "prompt")
 
@@ -297,3 +301,33 @@ def test_vision_http_status_error_preserves_safe_provider_diagnostic(monkeypatch
     )
     with pytest.raises(ProviderError, match="HTTP 400.*does not support image input"):
         provider.analyze_images_json("system", "prompt", [{"data": "aGVsbG8=", "media_type": "image/jpeg"}])
+
+
+
+@pytest.mark.parametrize(
+    ("provider", "wrong_base"),
+    [
+        ("groq", "https://api.openai.com/v1"),
+        ("openrouter", "https://api.groq.com/openai/v1"),
+    ],
+)
+def test_compatible_provider_rejects_another_official_provider_endpoint(provider, wrong_base):
+    configured = LLMProvider(
+        provider=provider, api_key="provider-secret", model="test-model", base_url=wrong_base,
+    )
+    with pytest.raises(ProviderError, match="configured with the"):
+        configured.complete_json("system", "prompt")
+
+
+
+def test_custom_compatible_provider_requires_explicit_endpoint_without_server_fallback(monkeypatch):
+    from app.services.llm import request_llm
+
+    monkeypatch.setenv("DIS_LLM_BASE_URL", "https://api.groq.com/openai/v1")
+    provider = request_llm(
+        provider="openai-compatible", model="custom-model", api_key="user-owned-key",
+    )
+    assert provider.base_url == ""
+    assert provider.enabled is False
+    with pytest.raises(ProviderError, match="requires an explicit HTTPS API base URL"):
+        provider.complete_json("system", "prompt")

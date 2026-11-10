@@ -264,3 +264,33 @@ def test_improvement_proposal_validation_errors_are_still_422(monkeypatch):
         json={"repository": "owner/repo", "target_files": [], "source_sharing_consent": True},
     )
     assert response.status_code == 422
+
+
+
+def test_dashboard_credential_helper_requires_explicit_scopes():
+    response = client.get("/static/app.js")
+    source = response.text
+    assert "function apiHeaders({apiKey = false, llm = false, githubRead = false, githubWrite = false}" in source
+    assert "headers:apiHeaders({apiKey:true,githubWrite:true})" in source
+    assert "headers:apiHeaders({apiKey:true,llm:true,githubRead:true})" in source
+    assert "if (githubWrite && values.githubWrite)" in source
+
+
+
+def test_proposal_endpoint_does_not_accept_a_github_write_token():
+    from inspect import signature
+    from app.api.improvements import propose_improvement, apply_improvement
+
+    assert "github_write_token" not in signature(propose_improvement).parameters
+    assert "github_write_token" in signature(apply_improvement).parameters
+
+
+
+def test_settings_expose_supported_compatible_providers_and_scoped_visual_key():
+    html = client.get("/").text
+    script = client.get("/static/app.js").text
+    assert '<option value="groq">Groq</option>' in html
+    assert '<option value="openrouter">OpenRouter</option>' in html
+    assert 'groq: {baseUrl:"https://api.groq.com/openai/v1"' in script
+    assert 'openrouter: {baseUrl:"https://openrouter.ai/api/v1"' in script
+    assert 'llm:$("vision-analysis").checked' in script

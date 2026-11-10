@@ -86,7 +86,7 @@ def test_apply_requires_explicit_approval(monkeypatch):
         ImprovementService().apply("not-a-valid-token", False)
 
 
-def test_signed_approval_token_can_only_be_applied_once(monkeypatch, tmp_path):
+def test_signed_approval_token_resumes_partial_apply_and_is_idempotent(monkeypatch, tmp_path):
     import base64
     import hashlib
     import hmac
@@ -100,38 +100,81 @@ def test_signed_approval_token_can_only_be_applied_once(monkeypatch, tmp_path):
     payload = {
         "repository": "owner/repo",
         "ref": "main",
+        "branch_name": "dis/ui-improvement-test",
         "base_sha": "base-commit",
         "summary": "Improve dashboard layout",
-        "changes": [{"path": "src/App.tsx", "sha": "blob-sha", "content": "export const App = () => null;"}],
+        "changes": [
+            {"path": "src/App.tsx", "sha": "blob-a", "content": "export const App = () => null;"},
+            {"path": "src/components/Card.tsx", "sha": "blob-b", "content": "export const Card = () => null;"},
+        ],
         "created_at": int(time.time()),
     }
     encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
     signature = hmac.new(b"proposal-signing-secret-with-32-plus-bytes", encoded.encode(), hashlib.sha256).hexdigest()
     token = encoded + "." + signature
     service = ImprovementService()
+    branch = None
+    branch_exists = False
+    fail_second_file_once = True
+    files = {
+        "src/App.tsx": {"sha": "blob-a", "content": "old app"},
+        "src/components/Card.tsx": {"sha": "blob-b", "content": "old card"},
+    }
+    pull_request = None
     calls = []
 
     def fake_request(method, url, **kwargs):
+        nonlocal branch, branch_exists, fail_second_file_once, pull_request
         calls.append((method, url))
-        if method == "GET":
+        if method == "GET" and url.endswith("/git/ref/heads/main"):
             return {"object": {"sha": "base-commit"}}
-        if url.endswith("/pulls"):
-            return {"html_url": "https://github.com/owner/repo/pull/42", "number": 42}
-        return {}
+        if method == "GET" and "/git/ref/heads/" in url:
+            if not branch_exists:
+                raise ImprovementError("GitHub API rejected the operation (HTTP 404).")
+            return {"object": {"sha": "branch-head"}}
+        if method == "POST" and url.endswith("/git/refs"):
+            branch_exists = True
+            branch = kwargs["json"]["ref"].removeprefix("refs/heads/")
+            return {}
+        if method == "GET" and url.endswith("/pulls"):
+            return [pull_request] if pull_request else []
+        if method == "GET" and "/contents/" in url:
+            path = url.split("/contents/", 1)[1]
+            item = files[path]
+            return {
+                "type": "file", "encoding": "base64", "sha": item["sha"],
+                "content": base64.b64encode(item["content"].encode()).decode(),
+            }
+        if method == "PUT" and "/contents/" in url:
+            path = url.split("/contents/", 1)[1]
+            if path.endswith("Card.tsx") and fail_second_file_once:
+                fail_second_file_once = False
+                raise ImprovementError("temporary GitHub failure during second file")
+            files[path] = {
+                "sha": "updated-" + path,
+                "content": base64.b64decode(kwargs["json"]["content"]).decode(),
+            }
+            return {}
+        if method == "POST" and url.endswith("/pulls"):
+            pull_request = {"html_url": "https://github.com/owner/repo/pull/42", "number": 42}
+            return pull_request
+        raise AssertionError(f"Unexpected GitHub request: {method} {url}")
 
-    def temporary_failure(method, url, **kwargs):
-        raise ImprovementError("temporary GitHub failure")
-
-    monkeypatch.setattr(service, "_request", temporary_failure)
+    monkeypatch.setattr(service, "_request", fake_request)
     with pytest.raises(ImprovementError, match="temporary GitHub failure"):
         service.apply(token, True)
 
-    monkeypatch.setattr(service, "_request", fake_request)
+    # First file was committed; the retry skips it and finishes the second file.
     result = service.apply(token, True)
     assert result["number"] == 42
-    with pytest.raises(ImprovementError, match="already been used"):
-        service.apply(token, True)
-    assert len(calls) == 5
+    assert files["src/App.tsx"]["content"] == payload["changes"][0]["content"]
+    assert files["src/components/Card.tsx"]["content"] == payload["changes"][1]["content"]
+
+    # A repeated client request returns the same PR and never creates a duplicate.
+    repeated = service.apply(token, True)
+    assert repeated == result
+    assert sum(method == "POST" and url.endswith("/pulls") for method, url in calls) == 1
+    assert sum(method == "PUT" for method, _ in calls) == 3
 
 
 def test_secret_redaction_covers_tokens_and_private_keys():
@@ -307,3 +350,26 @@ def test_qt_stylesheets_are_eligible_for_ai_ui_proposals():
     source = "QWidget { background-color: #20242b; color: #f4f4f4; }"
     assert _safe_source_path("ui/themes/dark.qss")
     assert _ui_source_score("ui/themes/dark.qss", source) > 0
+
+
+
+def test_public_reads_do_not_fall_back_to_write_only_token(monkeypatch):
+    monkeypatch.delenv("DIS_GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv("DIS_GITHUB_WRITE_TOKEN", "write-only-secret")
+    service = ImprovementService()
+    captured = {}
+
+    class Response:
+        status_code = 200
+        content = b"{}"
+
+        def json(self):
+            return {}
+
+    def fake_request(method, url, **kwargs):
+        captured.update(kwargs)
+        return Response()
+
+    monkeypatch.setattr("app.services.improvements.httpx.request", fake_request)
+    service._request("GET", "https://api.github.com/repos/owner/repo")
+    assert "Authorization" not in captured["headers"]

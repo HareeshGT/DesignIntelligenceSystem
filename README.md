@@ -55,7 +55,7 @@ Supported provider values:
 - `gemini` — Google Gemini through its OpenAI-compatible endpoint (default base URL: `https://generativelanguage.googleapis.com/v1beta/openai`)
 - `groq`, `openrouter`, `openai-compatible` — other OpenAI-compatible chat completions APIs
 
-Mistral and Gemini have built-in endpoint defaults. In browser Settings, each provider has its own session-scoped model ID, API key and optional endpoint profile; switching providers preserves the other profiles. The selected provider powers the existing DIS Design Director and specialist-agent team. For other compatible providers, set `DIS_LLM_BASE_URL` to the provider's OpenAI-compatible API base URL. Example for Groq:
+Mistral, Gemini, Groq and OpenRouter have built-in endpoint defaults. In browser Settings, each provider has its own session-scoped model ID, API key and optional endpoint profile; switching providers preserves the other profiles. The selected provider powers the existing DIS Design Director and specialist-agent team. For other compatible providers, set `DIS_LLM_BASE_URL` to the provider's OpenAI-compatible API base URL. The browser's **OpenAI-compatible** profile requires its own HTTPS base URL; it never inherits a different server provider's endpoint. Example for Groq:
 
 ```dotenv
 DIS_LLM_PROVIDER=groq

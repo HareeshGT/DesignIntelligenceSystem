@@ -150,7 +150,7 @@ class ImprovementService:
         self.database_path = os.getenv("DIS_DATABASE_PATH", "./design_intelligence.db")
 
     def _request(self, method: str, url: str, *, write: bool = False, **kwargs):
-        token = self.write_token if write else (self.read_token or self.write_token)
+        token = self.write_token if write else self.read_token
         if write and not token:
             raise ImprovementError("Configure DIS_GITHUB_WRITE_TOKEN with least-privilege write permissions.")
         headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Design-Intelligence-System"}
@@ -265,6 +265,9 @@ class ImprovementService:
         if requested_branch:
             if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,119}", requested_branch) or ".." in requested_branch or requested_branch.endswith(("/", ".")) or requested_branch.lower() == "head":
                 raise ImprovementError("Use a valid Git branch name without '..' or a trailing slash/dot.")
+            # Keep the requested label readable while preventing branch collisions
+            # between separate signed proposals that happen to use the same name.
+            requested_branch = requested_branch[:110].rstrip("/.") + "-" + uuid.uuid4().hex[:8]
         else:
             requested_branch = "dis/ui-improvement-" + uuid.uuid4().hex[:12]
         payload = {"repository": f"{owner}/{name}", "ref": ref, "branch_name": requested_branch, "base_sha": commit_sha, "summary": str(result.get("summary", "UI improvement proposal"))[:1200], "changes": changes, "created_at": int(time.time())}
@@ -281,11 +284,9 @@ class ImprovementService:
                     "token_hash TEXT PRIMARY KEY, consumed_at INTEGER NOT NULL)"
                 )
                 db.execute(
-                    "INSERT INTO consumed_improvement_proposals(token_hash, consumed_at) VALUES (?, ?)",
+                    "INSERT OR IGNORE INTO consumed_improvement_proposals(token_hash, consumed_at) VALUES (?, ?)",
                     (digest, int(time.time())),
                 )
-        except sqlite3.IntegrityError as exc:
-            raise ImprovementError("This approval token has already been used.") from exc
         except sqlite3.Error as exc:
             raise ImprovementError("Could not safely record one-time proposal approval.") from exc
 
@@ -308,19 +309,111 @@ class ImprovementService:
             raise ImprovementError("Proposal expired. Generate a fresh proposal before applying it.")
         owner, name = _repository_parts(payload["repository"])
         base = f"{API_ROOT}/repos/{owner}/{name}"
-        latest = self._request("GET", f"{base}/git/ref/heads/{quote(payload['ref'], safe='')}")
+        target_ref = payload["ref"]
+        changes = payload.get("changes")
+        if not isinstance(changes, list) or not changes:
+            raise ImprovementError("Proposal contains no approved source changes.")
+        if any(not isinstance(change, dict) or not _safe_source_path(str(change.get("path", ""))) for change in changes):
+            raise ImprovementError("Proposal contains a path that is no longer permitted.")
+
+        branch = payload.get("branch_name") or ("dis/ui-improvement-" + uuid.uuid4().hex[:12])
+        branch_ref_url = f"{base}/git/ref/heads/{quote(branch, safe='/')}"
+        pulls_url = f"{base}/pulls"
+
+        def find_pull_request():
+            pulls = self._request(
+                "GET", pulls_url,
+                params={"state": "all", "head": f"{owner}:{branch}", "base": target_ref},
+            )
+            return pulls[0] if isinstance(pulls, list) and pulls else None
+
+        # A retry after a timeout may arrive after GitHub created the PR but before
+        # the browser received its response. Return that same PR instead of making
+        # another branch or PR.
+        existing_pr = find_pull_request()
+        if existing_pr:
+            self._consume_proposal(encoded)
+            return {
+                "pull_request_url": existing_pr.get("html_url"),
+                "number": existing_pr.get("number"),
+                "branch": branch,
+                "status": "pull_request_created",
+            }
+
+        latest = self._request("GET", f"{base}/git/ref/heads/{quote(target_ref, safe='')}")
         if latest["object"]["sha"] != payload["base_sha"]:
             raise ImprovementError("Target branch changed after proposal generation. Re-inspect and propose again.")
-        if not isinstance(payload.get("changes"), list) or not payload["changes"]:
-            raise ImprovementError("Proposal contains no approved source changes.")
-        if any(not isinstance(change, dict) or not _safe_source_path(str(change.get("path", ""))) for change in payload["changes"]):
-            raise ImprovementError("Proposal contains a path that is no longer permitted.")
+
+        # Branch creation and each file update are independently retryable. The
+        # branch name is proposal-bound; existing files are compared with the
+        # approved content so a retry skips completed writes and resumes safely.
+        try:
+            self._request("GET", branch_ref_url)
+        except ImprovementError as exc:
+            if "HTTP 404" not in str(exc):
+                raise
+            try:
+                self._request(
+                    "POST", f"{base}/git/refs", write=True,
+                    json={"ref": f"refs/heads/{branch}", "sha": payload["base_sha"]},
+                )
+            except ImprovementError as create_exc:
+                if "HTTP 422" not in str(create_exc):
+                    raise
+                # Another in-flight retry may have created the same proposal branch.
+                self._request("GET", branch_ref_url)
+
+        for change in changes:
+            path = change["path"]
+            current = self._request(
+                "GET", f"{base}/contents/{quote(path, safe='/')}",
+                params={"ref": branch},
+            )
+            if current.get("encoding") != "base64" or current.get("type") != "file":
+                raise ImprovementError(f"Could not verify the current proposal file on branch: {path}")
+            current_content = _decode_github_content(current.get("content", ""))
+            if current_content == change["content"]:
+                continue
+            if current.get("sha") != change.get("sha"):
+                raise ImprovementError(
+                    f"Proposal branch file changed after approval began: {path}. "
+                    "Review the branch and generate a fresh proposal before retrying."
+                )
+            self._request(
+                "PUT", f"{base}/contents/{quote(path, safe='/')}", write=True,
+                json={
+                    "message": f"Improve UI: {path}",
+                    "content": base64.b64encode(change["content"].encode()).decode(),
+                    "sha": current["sha"],
+                    "branch": branch,
+                },
+            )
+
+        existing_pr = find_pull_request()
+        if not existing_pr:
+            pr_body = {
+                "title": "DIS: " + str(payload.get("summary", "UI improvement"))[:180],
+                "head": branch,
+                "base": target_ref,
+                "body": (
+                    "## Design Intelligence System UI improvement\n\n"
+                    + str(payload.get("summary", "UI improvement"))
+                    + "\n\nGenerated from an approved, evidence-backed proposal. "
+                    "Review the diff and run project checks before merging."
+                ),
+            }
+            try:
+                existing_pr = self._request("POST", pulls_url, write=True, json=pr_body)
+            except ImprovementError:
+                # The POST may have succeeded remotely even if the response was lost.
+                existing_pr = find_pull_request()
+                if not existing_pr:
+                    raise
+
         self._consume_proposal(encoded)
-        branch = payload.get("branch_name") or ("dis/ui-improvement-" + uuid.uuid4().hex[:12])
-        self._request("POST", f"{base}/git/refs", write=True, json={"ref": f"refs/heads/{branch}", "sha": payload["base_sha"]})
-        for change in payload["changes"]:
-            if not _safe_source_path(change["path"]):
-                raise ImprovementError("Proposal contains a path that is no longer permitted.")
-            self._request("PUT", f"{base}/contents/{quote(change['path'], safe='/')}", write=True, json={"message": f"Improve UI: {change['path']}", "content": base64.b64encode(change["content"].encode()).decode(), "sha": change["sha"], "branch": branch})
-        pr = self._request("POST", f"{base}/pulls", write=True, json={"title": "DIS: " + payload["summary"][:180], "head": branch, "base": payload["ref"], "body": "## Design Intelligence System UI improvement\n\n" + payload["summary"] + "\n\nGenerated from an approved, evidence-backed proposal. Review the diff and run project checks before merging."})
-        return {"pull_request_url": pr.get("html_url"), "number": pr.get("number"), "branch": branch, "status": "pull_request_created"}
+        return {
+            "pull_request_url": existing_pr.get("html_url"),
+            "number": existing_pr.get("number"),
+            "branch": branch,
+            "status": "pull_request_created",
+        }
