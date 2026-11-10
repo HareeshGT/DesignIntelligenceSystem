@@ -12,7 +12,14 @@ import httpx
 
 def request_llm(provider: str | None = None, model: str | None = None, api_key: str | None = None, base_url: str | None = None, timeout: float = 30.0) -> "LLMProvider":
     """Build a request-scoped provider; absent values fall back to server defaults."""
-    return LLMProvider(provider=provider or None, model=model or None, api_key=api_key or None, base_url=base_url or None, timeout=timeout)
+    # An explicitly selected browser provider must not inherit the server's
+    # DIS_LLM_BASE_URL when its own endpoint field is blank. Official providers
+    # still receive their built-in defaults in LLMProvider.__init__.
+    request_base_url = base_url if base_url is not None else ("" if provider else None)
+    return LLMProvider(
+        provider=provider or None, model=model or None, api_key=api_key or None,
+        base_url=request_base_url, timeout=timeout,
+    )
 
 
 class ProviderError(RuntimeError):
@@ -24,6 +31,8 @@ _OFFICIAL_PROVIDER_HOSTS = {
     "anthropic": "api.anthropic.com",
     "mistral": "api.mistral.ai",
     "gemini": "generativelanguage.googleapis.com",
+    "groq": "api.groq.com",
+    "openrouter": "openrouter.ai",
 }
 
 
@@ -50,13 +59,23 @@ class LLMProvider:
             configured_base_url = {
                 "mistral": "https://api.mistral.ai/v1",
                 "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+                "groq": "https://api.groq.com/openai/v1",
+                "openrouter": "https://openrouter.ai/api/v1",
             }.get(self.provider, "")
         self.base_url = configured_base_url.rstrip("/")
         self.timeout = timeout
 
     @property
     def enabled(self) -> bool:
-        return bool(self.api_key and self.model)
+        return bool(
+            self.api_key and self.model
+            and (self.provider != "openai-compatible" or self.base_url)
+        )
+
+    def _configuration_error(self) -> str:
+        if self.provider == "openai-compatible" and not self.base_url:
+            return "The OpenAI-compatible provider requires an explicit HTTPS API base URL."
+        return "LLM provider is not configured"
 
     def _validate_provider_endpoint(self) -> None:
         """Prevent a known provider profile from silently targeting another provider."""
@@ -94,7 +113,7 @@ class LLMProvider:
 
     def complete_json(self, system: str, prompt: str, max_tokens: int = 1800) -> dict[str, Any]:
         if not self.enabled:
-            raise ProviderError("LLM provider is not configured")
+            raise ProviderError(self._configuration_error())
         try:
             if self.provider == "anthropic":
                 content = self._anthropic(system, prompt, max_tokens=max_tokens)

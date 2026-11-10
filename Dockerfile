@@ -8,6 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Playwright's bundled Node runtime links libatomic.so.1. Install it before
+# invoking the Playwright CLI (including "playwright install --with-deps").
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system dis && adduser --system --ingroup dis --home /app dis
 
 COPY pyproject.toml README.md ./

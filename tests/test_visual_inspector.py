@@ -103,3 +103,51 @@ def test_visual_inspector_renders_three_viewports(monkeypatch):
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+
+def test_http_error_target_is_scored_as_unavailable(monkeypatch):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from threading import Thread
+
+    from app.services.visual_inspector import VisualInspector
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *_args):
+            return
+
+    monkeypatch.setattr(
+        "app.services.visual_inspector._validate_public_url",
+        lambda _url: None,
+    )
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = VisualInspector().inspect(VisualInspectionRequest(
+            url=f"http://127.0.0.1:{server.server_port}/missing",
+            capture_screenshots=False,
+        ))
+        assert result.status_code == 404
+        assert result.score == 0
+        assert result.grade == "F"
+        assert any(finding.category == "availability" for finding in result.findings)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+
+def test_browser_context_websocket_guard_is_registered_for_each_context():
+    from pathlib import Path
+
+    source = Path("app/services/visual_inspector.py").read_text()
+    assert "                        context.route_web_socket(" in source
+    assert "                            route_context.route_web_socket(" in source
+    assert "page.route_web_socket(" not in source

@@ -24,19 +24,21 @@ function formatApiError(detail, fallback) {
 }
 window.formatApiError = formatApiError;
 
-function apiHeaders() {
+function apiHeaders({apiKey = false, llm = false, githubRead = false, githubWrite = false} = {}) {
   const headers = {"Content-Type":"application/json"};
-  const key = sessionStorage.getItem(KEY_STORAGE);
-  if (key) headers["X-DIS-API-Key"] = key;
+  if (apiKey) {
+    const key = sessionStorage.getItem(KEY_STORAGE);
+    if (key) headers["X-DIS-API-Key"] = key;
+  }
   const values = Object.fromEntries(Object.entries(CREDENTIAL_FIELDS).map(([name, storage]) => [name, sessionStorage.getItem(storage) || ""]));
-  if (values.llmKey) {
+  if (llm && values.llmKey) {
     headers["X-DIS-LLM-API-Key"] = values.llmKey;
     if (values.provider) headers["X-DIS-LLM-Provider"] = values.provider;
     if (values.model) headers["X-DIS-LLM-Model"] = values.model;
     if (values.baseUrl) headers["X-DIS-LLM-Base-URL"] = values.baseUrl;
   }
-  if (values.githubRead) headers["X-DIS-GITHUB-READ-TOKEN"] = values.githubRead;
-  if (values.githubWrite) headers["X-DIS-GITHUB-WRITE-TOKEN"] = values.githubWrite;
+  if (githubRead && values.githubRead) headers["X-DIS-GITHUB-READ-TOKEN"] = values.githubRead;
+  if (githubWrite && values.githubWrite) headers["X-DIS-GITHUB-WRITE-TOKEN"] = values.githubWrite;
   return headers;
 }
 
@@ -221,7 +223,7 @@ async function inspect(event) {
   try {
     const payload = {repository, include_file_samples: $("sample-files").checked};
     if (ref) payload.ref = ref;
-    const headers = apiHeaders();
+    const headers = apiHeaders({apiKey:true,llm:true,githubRead:true});
     const response = await fetch(API_BASE + "/api/v1/repositories/inspect", {
       method:"POST", headers, body:JSON.stringify(payload)
     });
@@ -264,7 +266,7 @@ async function loadSystemStatus() {
     $("stat-health-note").textContent = "Unable to reach DIS API";
   }
   try {
-    const response = await fetch("/api/v1/provider", {headers:apiHeaders()});
+    const response = await fetch("/api/v1/provider", {headers:apiHeaders({llm:true})});
     const data = await response.json();
     $("stat-provider").textContent = data.configured ? data.provider : "Deterministic";
     $("stat-model").textContent = data.configured ? (data.model || "Model configured") : "LLM provider not configured";
@@ -280,6 +282,8 @@ const PROVIDER_DEFAULTS = {
   anthropic: {baseUrl:"https://api.anthropic.com/v1", model:""},
   mistral: {baseUrl:"https://api.mistral.ai/v1", model:"mistral-large-latest"},
   gemini: {baseUrl:"https://generativelanguage.googleapis.com/v1beta/openai", model:"gemini-2.5-flash"},
+  groq: {baseUrl:"https://api.groq.com/openai/v1", model:""},
+  openrouter: {baseUrl:"https://openrouter.ai/api/v1", model:""},
   "openai-compatible": {baseUrl:"", model:""}
 };
 function readProviderProfiles() {
@@ -304,10 +308,10 @@ function loadProviderProfile(provider) {
   $("llm-api-key").value = profile.apiKey || "";
   $("llm-base-url").value = belongsToAnotherProvider ? (defaults.baseUrl || "") : (savedBaseUrl || defaults.baseUrl || "");
   const help = $("llm-provider-help");
-  if (help) help.textContent = provider === "mistral"
-    ? "Mistral has its own model ID, API key and endpoint profile. The selected model powers the DIS specialist team."
-    : provider === "gemini"
-      ? "Gemini has its own model ID, API key and endpoint profile. The selected model powers the DIS specialist team."
+  if (help) help.textContent = ["mistral", "gemini", "groq", "openrouter"].includes(provider)
+    ? provider.charAt(0).toUpperCase() + provider.slice(1) + " has its own model ID, API key and endpoint profile. The selected model powers the DIS specialist team."
+    : provider === "openai-compatible"
+      ? "Enter the custom provider's HTTPS API base URL. DIS will not send your key to a default provider when this field is blank."
       : "Each provider keeps its own model, API key and endpoint in this browser session. The selected provider powers the DIS specialist team.";
 }
 $("llm-provider").addEventListener("change", () => {
@@ -344,6 +348,7 @@ $("clear-key").addEventListener("click", () => {
   sessionStorage.removeItem(KEY_STORAGE);sessionStorage.removeItem(PROVIDER_PROFILES_KEY);Object.values(CREDENTIAL_FIELDS).forEach(key=>sessionStorage.removeItem(key));
   ["api-key-input","llm-api-key","github-read-token","github-write-token"].forEach(id=>$(id).value="");
   ["llm-model","llm-base-url"].forEach(id=>$(id).value="");
+  loadSystemStatus();
 });
 $("clear-history").addEventListener("click", () => {
   if (confirm("Clear inspection history saved in this browser?")) {
@@ -435,7 +440,7 @@ async function inspectVisual(event) {
   $("visual-loading").classList.remove("hidden");
   try {
     const visualRequest = fetch(API_BASE + "/api/v1/visual/inspect", {
-      method:"POST", headers:apiHeaders(),
+      method:"POST", headers:apiHeaders({apiKey:true,llm:$("vision-analysis").checked}),
       body:JSON.stringify({
         url:$("visual-url").value.trim(), capture_screenshots:true,
         crawl_internal_routes:$("crawl-routes").checked, max_routes:4, analyze_with_vision:$("vision-analysis").checked
@@ -450,7 +455,7 @@ async function inspectVisual(event) {
     });
     const repositoryValue = $("visual-repository").value.trim();
     const repositoryRequest = repositoryValue ? fetch(API_BASE + "/api/v1/repositories/inspect", {
-      method:"POST", headers:apiHeaders(),
+      method:"POST", headers:apiHeaders({apiKey:true,llm:true,githubRead:true}),
       body:JSON.stringify({repository:repositoryValue, ref:$("visual-ref").value.trim() || null, include_file_samples:true})
     }).then(async response => {
       const body = await response.json().catch(() => ({}));
@@ -519,7 +524,7 @@ async function compareVersions(event) {
   $("compare-submit").textContent = "Comparing screenshots…";
   try {
     const response = await fetch("/api/v1/visual/compare", {
-      method:"POST", headers:apiHeaders(),
+      method:"POST", headers:apiHeaders({apiKey:true}),
       body:JSON.stringify({baseline_url:$("baseline-url").value.trim(), candidate_url:$("candidate-url").value.trim()})
     });
     const body = await response.json().catch(() => ({}));
@@ -584,7 +589,7 @@ async function proposeImprovement(event) {
   button.textContent = "Preparing patch proposal…";
   try {
     const response = await fetch("/api/v1/improvements/propose", {
-      method:"POST", headers:apiHeaders(),
+      method:"POST", headers:apiHeaders({apiKey:true,llm:true,githubRead:true}),
       body:JSON.stringify({
         repository:$("improvement-repo").value.trim(),
         ref:$("improvement-ref").value.trim() || null,
@@ -619,7 +624,7 @@ async function proposeImprovement(event) {
       apply.textContent = "Creating pull request…";
       try {
         const result = await fetch("/api/v1/improvements/apply", {
-          method:"POST", headers:apiHeaders(),
+          method:"POST", headers:apiHeaders({apiKey:true,githubWrite:true}),
           body:JSON.stringify({proposal_token:latestProposalToken, approval:true})
         });
         const outcome = await result.json().catch(() => ({}));
