@@ -30,6 +30,7 @@ jobs:
         with:
           node-version: "22"
       - run: node --check app/web/static/app.js
+      - run: node --check app/web/static/studio.js
       - run: cp .env.example .env && docker compose config --quiet
       - run: docker build -t design-intelligence-system:ci .
 
